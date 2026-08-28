@@ -16,7 +16,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-
 # Custom CSS Theme (Modern Dark Glassmorphism, Apple Health Cards, Mobile Polish)
 st.markdown("""
 <style>
@@ -308,22 +307,69 @@ else:
 st.sidebar.divider()
 selected_date = st.sidebar.date_input("🗓️ Pilih Tanggal Log", datetime.date.today()).strftime("%Y-%m-%d")
 
+# ------------------------------------------
+# KALKULATOR BMR & TDEE (WITH QUERY PARAMS)
+# ------------------------------------------
 st.sidebar.divider()
 st.sidebar.subheader("⚖️ Kalkulator BMR & TDEE")
+
+# Mengambil parameter dari URL jika ada
+qp = st.query_params
+default_jk = qp.get("jk", "Pria")
+try:
+    default_usia = int(qp.get("usia", 22))
+except ValueError:
+    default_usia = 22
+
+try:
+    default_bb = float(qp.get("bb", 65.0))
+except ValueError:
+    default_bb = 65.0
+
+try:
+    default_tb = float(qp.get("tb", 170.0))
+except ValueError:
+    default_tb = 170.0
+
+default_aktivitas = qp.get("aktivitas", "Sedentary (Jarang olahraga)")
+default_goal = qp.get("goal", "Maintenance (Jaga BB)")
+
 with st.sidebar.expander("Hitung Kebutuhan Kalori", expanded=False):
-    gender = st.radio("Jenis Kelamin", ["Pria", "Wanita"], horizontal=True)
-    usia = st.number_input("Usia (tahun)", min_value=10, max_value=100, value=22)
-    bb = st.number_input("Berat Badan (kg)", min_value=30.0, max_value=200.0, value=65.0, step=0.5)
-    tb = st.number_input("Tinggi Badan (cm)", min_value=100.0, max_value=230.0, value=170.0, step=0.5)
+    list_jk = ["Pria", "Wanita"]
+    idx_jk = list_jk.index(default_jk) if default_jk in list_jk else 0
+    gender = st.radio("Jenis Kelamin", list_jk, index=idx_jk, horizontal=True, key="calc_jk")
     
-    aktivitas = st.selectbox("Tingkat Aktivitas", [
+    usia = st.number_input("Usia (tahun)", min_value=10, max_value=100, value=default_usia, key="calc_usia")
+    bb = st.number_input("Berat Badan (kg)", min_value=30.0, max_value=200.0, value=default_bb, step=0.5, key="calc_bb")
+    tb = st.number_input("Tinggi Badan (cm)", min_value=100.0, max_value=230.0, value=default_tb, step=0.5, key="calc_tb")
+    
+    list_aktivitas = [
         "Sedentary (Jarang olahraga)",
         "Ringan (Olahraga 1-3 hari/minggu)",
         "Sedang (Olahraga 3-5 hari/minggu)",
         "Berat (Olahraga 6-7 hari/minggu)",
         "Sangat Berat (Atlet / Pekerja Fisik)"
-    ])
+    ]
+    idx_akt = list_aktivitas.index(default_aktivitas) if default_aktivitas in list_aktivitas else 0
+    aktivitas = st.selectbox("Tingkat Aktivitas", list_aktivitas, index=idx_akt, key="calc_akt")
     
+    list_goal = [
+        "Maintenance (Jaga BB)",
+        "Defisit Kalori (-500 kcal / Turun BB)",
+        "Surplus Kalori (+300 kcal / Muscle Gain)"
+    ]
+    idx_goal = list_goal.index(default_goal) if default_goal in list_goal else 0
+    goal = st.selectbox("Target Kebugaran", list_goal, index=idx_goal, key="calc_goal")
+    
+    # Update Query Params secara Real-time
+    st.query_params["jk"] = gender
+    st.query_params["usia"] = str(usia)
+    st.query_params["bb"] = str(bb)
+    st.query_params["tb"] = str(tb)
+    st.query_params["aktivitas"] = aktivitas
+    st.query_params["goal"] = goal
+
+    # Hitung BMR & TDEE
     bmr = (10 * bb) + (6.25 * tb) - (5 * usia) + (5 if gender == "Pria" else -161)
     mult_dict = {
         "Sedentary (Jarang olahraga)": 1.2,
@@ -333,12 +379,6 @@ with st.sidebar.expander("Hitung Kebutuhan Kalori", expanded=False):
         "Sangat Berat (Atlet / Pekerja Fisik)": 1.9
     }
     tdee = bmr * mult_dict[aktivitas]
-    
-    goal = st.selectbox("Target Kebugaran", [
-        "Maintenance (Jaga BB)",
-        "Defisit Kalori (-500 kcal / Turun BB)",
-        "Surplus Kalori (+300 kcal / Muscle Gain)"
-    ])
     
     target_calc = tdee
     if "Defisit" in goal:
@@ -452,7 +492,6 @@ with tab1:
     df_today = load_food_logs(selected_date)
     
     if not df_today.empty:
-        # TAMPILAN 4: Color Badge Tagging pada Tabel Log
         def color_waktu(val):
             colors = {
                 "Makan Pagi": "background-color: rgba(255, 235, 59, 0.2); color: #FFF59D; font-weight: 600;",
@@ -463,10 +502,10 @@ with tab1:
             return colors.get(val, '')
 
         df_styled = (
-    df_today.drop(columns=["id"])
-    .style.map(color_waktu, subset=["Waktu"])
-    .format(precision=1)  # Ubah precision=0 jika mau dibulatkan penuh tanpa desimal
-)
+            df_today.drop(columns=["id"])
+            .style.map(color_waktu, subset=["Waktu"])
+            .format(precision=1)
+        )
         st.dataframe(df_styled, use_container_width=True)
         
         col_del1, col_del2 = st.columns([2, 1])
@@ -536,7 +575,6 @@ with tab3:
     tot_karbo = df_today["Karbohidrat (g)"].sum() if not df_today.empty else 0
     tot_lemak = df_today["Lemak (g)"].sum() if not df_today.empty else 0
     
-    # TAMPILAN 2: Apple Health Style Metric Cards
     c1, c2, c3, c4 = st.columns(4)
     
     kal_pct = (tot_kal / target_kalori * 100) if target_kalori else 0
@@ -590,13 +628,11 @@ with tab3:
 
     st.write("")
     
-    # TAMPILAN 3: Multi-Ring Chart (Apple Watch Activity Rings Style)
     col_ring, col_chart2 = st.columns([1, 1])
     
     with col_ring:
         fig_ring = go.Figure()
         
-        # Ring 1: Kalori (Outer)
         fig_ring.add_trace(go.Pie(
             values=[min(tot_kal, target_kalori), max(0, target_kalori - tot_kal)],
             hole=0.75,
@@ -606,7 +642,6 @@ with tab3:
             sort=False
         ))
         
-        # Ring 2: Protein (Inner)
         fig_ring.add_trace(go.Pie(
             values=[min(tot_prot, target_protein), max(0, target_protein - tot_prot)],
             hole=0.55,
