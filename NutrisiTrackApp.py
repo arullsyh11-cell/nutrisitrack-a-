@@ -308,40 +308,52 @@ st.sidebar.divider()
 selected_date = st.sidebar.date_input("🗓️ Pilih Tanggal Log", datetime.date.today()).strftime("%Y-%m-%d")
 
 # ------------------------------------------
-# KALKULATOR BMR & TDEE (WITH QUERY PARAMS)
+# KALKULATOR BMR & TDEE (WITH PERSISTENT STATE & PARAMS)
 # ------------------------------------------
 st.sidebar.divider()
 st.sidebar.subheader("⚖️ Kalkulator BMR & TDEE")
 
-# Mengambil parameter dari URL jika ada
+# Inisialisasi awal Session State dari Query Params
 qp = st.query_params
-default_jk = qp.get("jk", "Pria")
-try:
-    default_usia = int(qp.get("usia", 22))
-except ValueError:
-    default_usia = 22
 
-try:
-    default_bb = float(qp.get("bb", 65.0))
-except ValueError:
-    default_bb = 65.0
+if "calc_jk" not in st.session_state:
+    st.session_state.calc_jk = qp.get("jk", "Pria")
+if "calc_usia" not in st.session_state:
+    try:
+        st.session_state.calc_usia = int(qp.get("usia", 22))
+    except ValueError:
+        st.session_state.calc_usia = 22
+if "calc_bb" not in st.session_state:
+    try:
+        st.session_state.calc_bb = float(qp.get("bb", 65.0))
+    except ValueError:
+        st.session_state.calc_bb = 65.0
+if "calc_tb" not in st.session_state:
+    try:
+        st.session_state.calc_tb = float(qp.get("tb", 170.0))
+    except ValueError:
+        st.session_state.calc_tb = 170.0
+if "calc_akt" not in st.session_state:
+    st.session_state.calc_akt = qp.get("aktivitas", "Sedentary (Jarang olahraga)")
+if "calc_goal" not in st.session_state:
+    st.session_state.calc_goal = qp.get("goal", "Maintenance (Jaga BB)")
 
-try:
-    default_tb = float(qp.get("tb", 170.0))
-except ValueError:
-    default_tb = 170.0
-
-default_aktivitas = qp.get("aktivitas", "Sedentary (Jarang olahraga)")
-default_goal = qp.get("goal", "Maintenance (Jaga BB)")
+# Callback untuk sync session_state ke query_params
+def update_params():
+    st.query_params["jk"] = st.session_state.calc_jk
+    st.query_params["usia"] = str(st.session_state.calc_usia)
+    st.query_params["bb"] = str(st.session_state.calc_bb)
+    st.query_params["tb"] = str(st.session_state.calc_tb)
+    st.query_params["aktivitas"] = st.session_state.calc_akt
+    st.query_params["goal"] = st.session_state.calc_goal
 
 with st.sidebar.expander("Hitung Kebutuhan Kalori", expanded=False):
     list_jk = ["Pria", "Wanita"]
-    idx_jk = list_jk.index(default_jk) if default_jk in list_jk else 0
-    gender = st.radio("Jenis Kelamin", list_jk, index=idx_jk, horizontal=True, key="calc_jk")
+    gender = st.radio("Jenis Kelamin", list_jk, key="calc_jk", horizontal=True, on_change=update_params)
     
-    usia = st.number_input("Usia (tahun)", min_value=10, max_value=100, value=default_usia, key="calc_usia")
-    bb = st.number_input("Berat Badan (kg)", min_value=30.0, max_value=200.0, value=default_bb, step=0.5, key="calc_bb")
-    tb = st.number_input("Tinggi Badan (cm)", min_value=100.0, max_value=230.0, value=default_tb, step=0.5, key="calc_tb")
+    usia = st.number_input("Usia (tahun)", min_value=10, max_value=100, key="calc_usia", on_change=update_params)
+    bb = st.number_input("Berat Badan (kg)", min_value=30.0, max_value=200.0, step=0.5, key="calc_bb", on_change=update_params)
+    tb = st.number_input("Tinggi Badan (cm)", min_value=100.0, max_value=230.0, step=0.5, key="calc_tb", on_change=update_params)
     
     list_aktivitas = [
         "Sedentary (Jarang olahraga)",
@@ -350,24 +362,14 @@ with st.sidebar.expander("Hitung Kebutuhan Kalori", expanded=False):
         "Berat (Olahraga 6-7 hari/minggu)",
         "Sangat Berat (Atlet / Pekerja Fisik)"
     ]
-    idx_akt = list_aktivitas.index(default_aktivitas) if default_aktivitas in list_aktivitas else 0
-    aktivitas = st.selectbox("Tingkat Aktivitas", list_aktivitas, index=idx_akt, key="calc_akt")
+    aktivitas = st.selectbox("Tingkat Aktivitas", list_aktivitas, key="calc_akt", on_change=update_params)
     
     list_goal = [
         "Maintenance (Jaga BB)",
         "Defisit Kalori (-500 kcal / Turun BB)",
         "Surplus Kalori (+300 kcal / Muscle Gain)"
     ]
-    idx_goal = list_goal.index(default_goal) if default_goal in list_goal else 0
-    goal = st.selectbox("Target Kebugaran", list_goal, index=idx_goal, key="calc_goal")
-    
-    # Update Query Params secara Real-time
-    st.query_params["jk"] = gender
-    st.query_params["usia"] = str(usia)
-    st.query_params["bb"] = str(bb)
-    st.query_params["tb"] = str(tb)
-    st.query_params["aktivitas"] = aktivitas
-    st.query_params["goal"] = goal
+    goal = st.selectbox("Target Kebugaran", list_goal, key="calc_goal", on_change=update_params)
 
     # Hitung BMR & TDEE
     bmr = (10 * bb) + (6.25 * tb) - (5 * usia) + (5 if gender == "Pria" else -161)
