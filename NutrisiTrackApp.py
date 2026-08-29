@@ -4,7 +4,10 @@ import sqlite3
 import datetime
 import plotly.express as px
 import plotly.graph_objects as go
-from streamlit_gsheets import GSheetsConnection
+import os
+from fpdf import FPDF
+import time
+
 
 # ==========================================
 # 1. KONFIGURASI HALAMAN & DATABASE
@@ -16,7 +19,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS Theme (Modern Dark Glassmorphism, Apple Health Cards, Mobile Polish)
+# Custom CSS Theme (Modern Dark Glassmorphism)
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
@@ -68,19 +71,12 @@ st.markdown("""
         border-radius: 10px; font-weight: 600; border: 1px solid rgba(255, 255, 255, 0.1); transition: all 0.2s ease;
     }
     .stButton>button:hover { border-color: #4CAF50; color: #4CAF50; }
-    
-    @media (max-width: 768px) {
-        .macro-value { font-size: 1.3rem; }
-        .stTabs [data-baseweb="tab"] { padding: 6px 10px; font-size: 0.85rem; }
-    }
 </style>
 """, unsafe_allow_html=True)
-
 
 def init_db():
     conn = sqlite3.connect("nutrition_tracker.db")
     c = conn.cursor()
-    # Ditambahkan kolom 'user_id' di setiap tabel
     c.execute('''
         CREATE TABLE IF NOT EXISTS food_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -104,12 +100,20 @@ def init_db():
             UNIQUE(user_id, tanggal)
         )
     ''')
+    
+    for table in ["food_logs", "water_logs", "weight_logs"]:
+        try:
+            c.execute(f"ALTER TABLE {table} ADD COLUMN user_id TEXT DEFAULT 'guest'")
+        except sqlite3.OperationalError:
+            pass
+            
     conn.commit()
     conn.close()
 
 init_db()
 
 DATABASE_MAKANAN = {
+    # --- DATA LAMA KAMU ---
     "Nasi Putih (1 piring/150g)": {"kalori": 204, "protein": 4.2, "karbo": 44.0, "lemak": 0.4},
     "Oatmeal (40g dry)": {"kalori": 150, "protein": 5.0, "karbo": 27.0, "lemak": 2.5},
     "Nasi Goreng (1 piring)": {"kalori": 510, "protein": 12.5, "karbo": 65.0, "lemak": 21.0},
@@ -125,17 +129,67 @@ DATABASE_MAKANAN = {
     "Kebab Daging (1 pcs)": {"kalori": 520, "protein": 20.0, "karbo": 45.0, "lemak": 28.0},
     "Sei Sapi (100g)": {"kalori": 240, "protein": 26.0, "karbo": 2.0, "lemak": 14.0},
     "Sate Ayam (10 tusuk)": {"kalori": 340, "protein": 28.0, "karbo": 12.0, "lemak": 20.0},
-    "Martabak Telur (1 potong)": {"kalori": 150, "protein": 5.5, "karbo": 12.0, "lemak": 9.0},
-    "Kwetiau Goreng (1 piring)": {"kalori": 470, "protein": 10.0, "karbo": 60.0, "lemak": 21.0},
-    "Sayur Bayam (1 mangkok)": {"kalori": 45, "protein": 2.5, "karbo": 7.0, "lemak": 0.5},
-    "Sayur Buncis Tumis (1 porsi)": {"kalori": 65, "protein": 2.0, "karbo": 8.0, "lemak": 3.0},
-    "Mie Goreng (1 piring)": {"kalori": 380, "protein": 9.0, "karbo": 54.0, "lemak": 14.0},
-    "Ayam Goreng Paha/Dada (1 pcs)": {"kalori": 260, "protein": 22.0, "karbo": 4.0, "lemak": 17.0},
-    "Lumpia Ubi (1 pcs)": {"kalori": 110, "protein": 1.5, "karbo": 18.0, "lemak": 4.0},
-}
 
+    # --- TAMBAHAN MENU MAKAN PAGI ---
+    "Telur Dadar Sayur (1 porsi)": {"kalori": 170, "protein": 13.0, "karbo": 3.0, "lemak": 12.0},
+    "Roti Tawar Gandum (2 lembar)": {"kalori": 130, "protein": 5.0, "karbo": 24.0, "lemak": 1.5},
+    "Tempe Goreng Tepung (1 potong)": {"kalori": 90, "protein": 6.0, "karbo": 5.0, "lemak": 5.0},
+    "Nasi Uduk Half + Telur Rebus": {"kalori": 280, "protein": 10.0, "karbo": 35.0, "lemak": 11.0},
+    "Bubur Ayam Tanpa Kerupuk (1 mangkok)": {"kalori": 250, "protein": 14.0, "karbo": 35.0, "lemak": 5.0},
+    "Nasi Kuning Half + Telur Suwir": {"kalori": 260, "protein": 11.0, "karbo": 36.0, "lemak": 8.0},
+    "Lontong Sayur Telur Kuah Dikit": {"kalori": 270, "protein": 11.0, "karbo": 34.0, "lemak": 10.0},
+    "Tahu Kukus Isi Daging (2 pcs)": {"kalori": 160, "protein": 14.0, "karbo": 5.0, "lemak": 9.0},
+    "Oatmeal Instant + Susu Low Fat": {"kalori": 230, "protein": 10.0, "karbo": 36.0, "lemak": 5.0},
+
+    # --- TAMBAHAN MENU MAKAN SIANG ---
+    "Ayam Goreng Lengkuas - Dada (1 potong)": {"kalori": 240, "protein": 35.0, "karbo": 2.0, "lemak": 10.0},
+    "Ayam Bakar Kecap - Dada (1 potong)": {"kalori": 220, "protein": 35.0, "karbo": 5.0, "lemak": 6.0},
+    "Ikan Lele Goreng (1 ekor)": {"kalori": 200, "protein": 18.0, "karbo": 2.0, "lemak": 13.0},
+    "Ikan Nila Bakar (1 ekor/150g)": {"kalori": 190, "protein": 30.0, "karbo": 2.0, "lemak": 7.0},
+    "Tahu Bacem (1 potong)": {"kalori": 80, "protein": 5.0, "karbo": 9.0, "lemak": 3.0},
+    "Tempe Bacem (1 potong)": {"kalori": 100, "protein": 7.0, "karbo": 9.0, "lemak": 4.0},
+    "Tumis Kangkung / Bayam (1 porsi)": {"kalori": 80, "protein": 3.0, "karbo": 6.0, "lemak": 5.0},
+    "Soto Ayam Bening + Nasi Half": {"kalori": 290, "protein": 20.0, "karbo": 32.0, "lemak": 8.0},
+    "Pecel Lele + Lalapan (Tanpa Nasi)": {"kalori": 220, "protein": 18.0, "karbo": 4.0, "lemak": 14.0},
+    "Sayur Asem (1 mangkok)": {"kalori": 80, "protein": 2.0, "karbo": 14.0, "lemak": 2.0},
+    "Ayam Suwir Balado - Dada (100g)": {"kalori": 190, "protein": 30.0, "karbo": 4.0, "lemak": 6.0},
+
+    # --- TAMBAHAN MENU MAKAN MALAM ---
+    "Sup Ayam Bening - Dada (1 mangkok)": {"kalori": 190, "protein": 25.0, "karbo": 10.0, "lemak": 5.0},
+    "Capcay Ayam Kuah (1 porsi)": {"kalori": 210, "protein": 22.0, "karbo": 12.0, "lemak": 8.0},
+    "Sate Ayam Tanpa Bumbu Kacang (8 tusuk)": {"kalori": 200, "protein": 32.0, "karbo": 2.0, "lemak": 6.0},
+    "Tumis Buncis Telur Orak-Arik (1 porsi)": {"kalori": 150, "protein": 9.0, "karbo": 8.0, "lemak": 9.0},
+    "Ikan Tongkol Balado (1 potong/100g)": {"kalori": 180, "protein": 24.0, "karbo": 3.0, "lemak": 8.0},
+    "Tahu Tek / Tahu Telur Sedikit Minyak": {"kalori": 250, "protein": 16.0, "karbo": 20.0, "lemak": 12.0},
+    "Nasi Goreng Kampung Simpel + Telur": {"kalori": 320, "protein": 12.0, "karbo": 42.0, "lemak": 11.0},
+    "Tumis Tahu Jamur (1 porsi)": {"kalori": 160, "protein": 12.0, "karbo": 8.0, "lemak": 9.0},
+    "Soto Daging Bening Tanpa Santan": {"kalori": 220, "protein": 22.0, "karbo": 6.0, "lemak": 12.0},
+    "Kentang Rebus (100g)": {"kalori": 87, "protein": 1.9, "karbo": 20.0, "lemak": 0.1},
+
+    # --- TAMBAHAN MENU CEMILAN ---
+    "Edamame Rebus (100g)": {"kalori": 120, "protein": 11.0, "karbo": 10.0, "lemak": 5.0},
+    "Apel Red / Fuji (1 buah)": {"kalori": 80, "protein": 0.4, "karbo": 21.0, "lemak": 0.2},
+    "Pisang Ambon / Sunpride (1 buah)": {"kalori": 90, "protein": 1.1, "karbo": 23.0, "lemak": 0.3},
+    "Kacang Almond Panggang (15 butir)": {"kalori": 105, "protein": 4.0, "karbo": 3.0, "lemak": 9.0},
+    "Roti Gandum + Peanut Butter (1 sheet)": {"kalori": 180, "protein": 7.0, "karbo": 20.0, "lemak": 8.0},
+    "Puding Chia Seed / Agar Plain": {"kalori": 70, "protein": 3.0, "karbo": 8.0, "lemak": 3.0},
+    "Dada Ayam Popcorn Airfryer (80g)": {"kalori": 130, "protein": 24.0, "karbo": 3.0, "lemak": 2.0},
+    "Kacang Tanah Sangrai (25g)": {"kalori": 140, "protein": 6.0, "karbo": 5.0, "lemak": 12.0},
+    "Keju Slice Low Fat (2 lembar)": {"kalori": 90, "protein": 8.0, "karbo": 2.0, "lemak": 5.0},
+    "Dark Chocolate 70%+ (2 kotak/20g)": {"kalori": 110, "protein": 1.5, "karbo": 9.0, "lemak": 8.0},
+
+    # --- TAMBAHAN MENU SUSHI ---
+    "Salmon Nigiri (2 pcs)": {"kalori": 130, "protein": 7.0, "karbo": 15.0, "lemak": 3.5},
+    "Tuna Nigiri (2 pcs)": {"kalori": 110, "protein": 8.0, "karbo": 15.0, "lemak": 1.0},
+    "Salmon Maki Roll (6 pcs)": {"kalori": 180, "protein": 9.0, "karbo": 28.0, "lemak": 3.0},
+    "California Roll (8 pcs)": {"kalori": 280, "protein": 7.0, "karbo": 38.0, "lemak": 7.0},
+    "Spicy Tuna Roll (8 pcs)": {"kalori": 320, "protein": 12.0, "karbo": 36.0, "lemak": 11.0},
+    "Chicken Katsu Roll (8 pcs)": {"kalori": 380, "protein": 14.0, "karbo": 45.0, "lemak": 14.0},
+    "Salmon Mentai Roll (8 pcs)": {"kalori": 450, "protein": 15.0, "karbo": 48.0, "lemak": 18.0},
+    "Salmon Sashimi (5 pcs/Tanpa Nasi)": {"kalori": 170, "protein": 23.0, "karbo": 0.0, "lemak": 8.0},
+}
 # ==========================================
-# 2. DATABASE HELPER FUNCTIONS (WITH USER ID)
+# 2. HELPER FUNCTIONS
 # ==========================================
 
 def add_food_to_db(user_id, tanggal, waktu, makanan, porsi, kalori, protein, karbo, lemak):
@@ -214,15 +268,13 @@ def get_streak_count(user_id):
     dates = [datetime.datetime.strptime(row[0], "%Y-%m-%d").date() for row in c.fetchall()]
     conn.close()
     
-    if not dates:
-        return 0
+    if not dates: return 0
     today = datetime.date.today()
     streak = 0
     check_date = today
     if today not in dates:
         check_date = today - datetime.timedelta(days=1)
-        if check_date not in dates:
-            return 0
+        if check_date not in dates: return 0
     while check_date in dates:
         streak += 1
         check_date -= datetime.timedelta(days=1)
@@ -232,7 +284,7 @@ def get_weekly_history(user_id):
     conn = sqlite3.connect("nutrition_tracker.db")
     df = pd.read_sql_query("""
         SELECT tanggal, SUM(kalori) as total_kalori, SUM(protein) as total_protein, 
-               SUM(karbo) as total_karbo, SUM(lemak) as total_lemak 
+            SUM(karbo) as total_karbo, SUM(lemak) as total_lemak 
         FROM food_logs 
         WHERE user_id = ?
         GROUP BY tanggal 
@@ -241,134 +293,199 @@ def get_weekly_history(user_id):
     conn.close()
     return df
 
+def color_waktu(waktu):
+    colors = {
+        "Makan Pagi": "background-color: rgba(255, 235, 59, 0.2); color: #FFF59D; font-weight: 600;",
+        "Makan Siang": "background-color: rgba(255, 152, 0, 0.2); color: #FFCC80; font-weight: 600;",
+        "Makan Malam": "background-color: rgba(156, 39, 176, 0.2); color: #E1BEE7; font-weight: 600;",
+        "Camilan": "background-color: rgba(76, 175, 80, 0.2); color: #A5D6A7; font-weight: 600;"
+    }
+    return colors.get(waktu, '')
+
+class PDFWithWatermark(FPDF):
+    def header(self):
+        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+        logo_path = os.path.join(BASE_DIR, "logo-removebg-preview.png")
+        
+        if os.path.exists(logo_path):
+            try:
+                self.set_alpha(0.15)
+                self.image(logo_path, x=55, y=90, w=100)
+                self.set_alpha(1.0)
+            except Exception as e:
+                # Print error di terminal kalau ada masalah baca gambar
+                print(f"Error watermark: {e}")
+
+def generate_pdf_report(user_id, tanggal, df_food, water_ml, target_kal, target_prot, target_karb, target_lem):
+    # Pakai class PDFWithWatermark yang baru
+    pdf = PDFWithWatermark()
+    pdf.add_page()
+    
+    pdf.set_font("Helvetica", "B", 18)
+    pdf.cell(0, 10, f"NutriTrack Pro - Daily Report", ln=True, align="C")
+    
+    pdf.set_font("Helvetica", "", 10)
+    pdf.cell(0, 6, f"User ID: {user_id.upper()}  |  Tanggal: {tanggal}", ln=True, align="C")
+    pdf.ln(6)
+    
+    tot_kal = df_food["Kalori (kcal)"].sum() if not df_food.empty else 0
+    tot_prot = df_food["Protein (g)"].sum() if not df_food.empty else 0
+    tot_karbo = df_food["Karbohidrat (g)"].sum() if not df_food.empty else 0
+    tot_lemak = df_food["Lemak (g)"].sum() if not df_food.empty else 0
+    
+    pdf.set_font("Helvetica", "B", 12)
+    pdf.cell(0, 8, "1. Ringkasan Nutrisi Harian", ln=True)
+    pdf.set_font("Helvetica", "", 10)
+    pdf.cell(0, 6, f"- Total Kalori    : {tot_kal:.0f} / {target_kal} kcal", ln=True)
+    pdf.cell(0, 6, f"- Total Protein   : {tot_prot:.1f} / {target_prot} g", ln=True)
+    pdf.cell(0, 6, f"- Total Karbo     : {tot_karbo:.1f} / {target_karb} g", ln=True)
+    pdf.cell(0, 6, f"- Total Lemak     : {tot_lemak:.1f} / {target_lem} g", ln=True)
+    pdf.cell(0, 6, f"- Total Air Minum : {water_ml} ml", ln=True)
+    pdf.ln(6)
+    
+    pdf.set_font("Helvetica", "B", 12)
+    pdf.cell(0, 8, "2. Detail Log Makanan", ln=True)
+    pdf.set_font("Helvetica", "B", 9)
+    pdf.cell(30, 7, "Waktu", 1)
+    pdf.cell(75, 7, "Makanan", 1)
+    pdf.cell(25, 7, "Kalori", 1)
+    pdf.cell(25, 7, "Protein", 1)
+    pdf.cell(25, 7, "Karbo", 1)
+    pdf.ln()
+    
+    pdf.set_font("Helvetica", "", 9)
+    if not df_food.empty:
+        for _, row in df_food.iterrows():
+            pdf.cell(30, 6, str(row["Waktu"]), 1)
+            pdf.cell(75, 6, str(row["Makanan"])[:38], 1)
+            pdf.cell(25, 6, f"{row['Kalori (kcal)']:.0f} kcal", 1)
+            pdf.cell(25, 6, f"{row['Protein (g)']:.1f} g", 1)
+            pdf.cell(25, 6, f"{row['Karbohidrat (g)']:.1f} g", 1)
+            pdf.ln()
+    else:
+        pdf.cell(180, 6, "Belum ada catatan makanan pada tanggal ini.", 1, ln=True, align="C")
+        
+    return bytes(pdf.output())
 
 # ==========================================
-# 3. SIDEBAR (PROFIL USER & KALKULATOR)
+# 3. SIDEBAR (NAVIGASI BUTTON & PROFIL)
 # ==========================================
 
-st.sidebar.title("⚙️ Fitur & Pengaturan")
+# Inisialisasi State Halaman Utama
+if "current_page" not in st.session_state:
+    st.session_state["current_page"] = "Dashboard Utama"
 
-# INPUT PROFILE / USER ID
+st.sidebar.title("📌 Menu Navigasi")
+
+# Button Navigasi Halaman
+if st.sidebar.button("📊 Dashboard Tracker", use_container_width=True):
+    st.session_state["current_page"] = "Dashboard Utama"
+
+if st.sidebar.button("⚙️ Pengaturan & Kalkulator", use_container_width=True):
+    st.session_state["current_page"] = "Pengaturan"
+
+# Kamu bisa dengan mudah nambah halaman baru di sini nanti:
+# if st.sidebar.button("🏆 Leaderboard / Clan", use_container_width=True):
+#     st.session_state["current_page"] = "Leaderboard"
+
+st.sidebar.divider()
+
+# Profil User Input (Session State Managed)
+query_params = st.query_params
+default_user = query_params.get("user", "User1")
+
+if "user_id_input" not in st.session_state:
+    st.session_state["user_id_input"] = default_user
+
 st.sidebar.subheader("👤 Pilih Profil Pengguna")
-raw_user = st.sidebar.text_input("Masukkan Nama/ID Kamu:", value="User1", help="Gunakan nama unikmu agar data tidak kecampur dengan orang lain")
+raw_user = st.sidebar.text_input(
+    "Masukkan Nama/ID Kamu:", 
+    key="user_id_input",
+    help="Gunakan nama unikmu agar data tidak kecampur dengan orang lain"
+)
+
 user_id = raw_user.strip().lower() if raw_user.strip() else "guest"
 
-# Streak Counter
+if st.query_params.get("user") != user_id:
+    st.query_params["user"] = user_id
+
 streak_days = get_streak_count(user_id)
 st.sidebar.markdown(f"### 🔥 Streak **[{user_id.upper()}]**: **{streak_days} Hari**")
 
 st.sidebar.divider()
-selected_date = st.sidebar.date_input("🗓️ Pilih Tanggal Log", datetime.date.today()).strftime("%Y-%m-%d")
 
-# ------------------------------------------
-# KALKULATOR BMR & TDEE
-# ------------------------------------------
-st.sidebar.divider()
-st.sidebar.subheader("⚖️ Kalkulator BMR & TDEE")
+use_today_auto = st.sidebar.checkbox("🔄 Reset Otomatis 24 Jam (Hari Ini)", value=True)
+if use_today_auto:
+    selected_date = datetime.date.today().strftime("%Y-%m-%d")
+    st.sidebar.caption("⚡ Mode Otomatis Aktif: Mengambil tanggal hari ini.")
+else:
+    selected_date = st.sidebar.date_input("🗓️ Pilih Tanggal Log", datetime.date.today()).strftime("%Y-%m-%d")
 
-qp = st.query_params
-
-if "calc_jk" not in st.session_state:
-    st.session_state.calc_jk = qp.get("jk", "Pria")
-if "calc_usia" not in st.session_state:
-    try: st.session_state.calc_usia = int(qp.get("usia", 22))
-    except: st.session_state.calc_usia = 22
-if "calc_bb" not in st.session_state:
-    try: st.session_state.calc_bb = float(qp.get("bb", 65.0))
-    except: st.session_state.calc_bb = 65.0
-if "calc_tb" not in st.session_state:
-    try: st.session_state.calc_tb = float(qp.get("tb", 170.0))
-    except: st.session_state.calc_tb = 170.0
-if "calc_akt" not in st.session_state:
-    st.session_state.calc_akt = qp.get("aktivitas", "Sedentary (Jarang olahraga)")
-if "calc_goal" not in st.session_state:
-    st.session_state.calc_goal = qp.get("goal", "Maintenance (Jaga BB)")
-
-def update_params():
-    st.query_params["jk"] = st.session_state.calc_jk
-    st.query_params["usia"] = str(st.session_state.calc_usia)
-    st.query_params["bb"] = str(st.session_state.calc_bb)
-    st.query_params["tb"] = str(st.session_state.calc_tb)
-    st.query_params["aktivitas"] = st.session_state.calc_akt
-    st.query_params["goal"] = st.session_state.calc_goal
-
-with st.sidebar.expander("Hitung Kebutuhan Kalori", expanded=False):
-    list_jk = ["Pria", "Wanita"]
-    gender = st.radio("Jenis Kelamin", list_jk, key="calc_jk", horizontal=True, on_change=update_params)
-    usia = st.number_input("Usia (tahun)", min_value=10, max_value=100, key="calc_usia", on_change=update_params)
-    bb = st.number_input("Berat Badan (kg)", min_value=30.0, max_value=200.0, step=0.5, key="calc_bb", on_change=update_params)
-    tb = st.number_input("Tinggi Badan (cm)", min_value=100.0, max_value=230.0, step=0.5, key="calc_tb", on_change=update_params)
-    
-    list_aktivitas = [
-        "Sedentary (Jarang olahraga)", "Ringan (Olahraga 1-3 hari/minggu)",
-        "Sedang (Olahraga 3-5 hari/minggu)", "Berat (Olahraga 6-7 hari/minggu)",
-        "Sangat Berat (Atlet / Pekerja Fisik)"
-    ]
-    aktivitas = st.selectbox("Tingkat Aktivitas", list_aktivitas, key="calc_akt", on_change=update_params)
-    
-    list_goal = [
-        "Maintenance (Jaga BB)", "Defisit Kalori (-500 kcal / Turun BB)", "Surplus Kalori (+300 kcal / Muscle Gain)"
-    ]
-    goal = st.selectbox("Target Kebugaran", list_goal, key="calc_goal", on_change=update_params)
-
-    bmr = (10 * bb) + (6.25 * tb) - (5 * usia) + (5 if gender == "Pria" else -161)
-    mult_dict = {
-        "Sedentary (Jarang olahraga)": 1.2, "Ringan (Olahraga 1-3 hari/minggu)": 1.375,
-        "Sedang (Olahraga 3-5 hari/minggu)": 1.55, "Berat (Olahraga 6-7 hari/minggu)": 1.725,
-        "Sangat Berat (Atlet / Pekerja Fisik)": 1.9
-    }
-    tdee = bmr * mult_dict[aktivitas]
-    
-    target_calc = tdee
-    if "Defisit" in goal: target_calc -= 500
-    elif "Surplus" in goal: target_calc += 300
-        
-    st.info(f"**BMR:** {int(bmr)} kcal\n\n**TDEE:** {int(tdee)} kcal\n\n**Rekomendasi Target:** **{int(target_calc)} kcal**")
-    
-    if st.button("Gunakan Rekomendasi Ini"):
-        st.session_state.target_kalori_val = int(target_calc)
-        st.session_state.target_protein_val = int(bb * 1.8)
-        st.session_state.target_karbo_val = int((target_calc * 0.5) / 4)
-        st.session_state.target_lemak_val = int((target_calc * 0.25) / 9)
-        st.success("Target berhasil diupdate!")
-
-st.sidebar.divider()
-st.sidebar.subheader("🎯 Custom Target Harian")
-
+# Target Harian State Default
 st.session_state.setdefault('target_kalori_val', 2000)
 st.session_state.setdefault('target_protein_val', 120)
 st.session_state.setdefault('target_karbo_val', 250)
 st.session_state.setdefault('target_lemak_val', 60)
 
-target_kalori = st.sidebar.number_input("Target Kalori (kcal)", value=st.session_state.target_kalori_val, step=50)
-target_protein = st.sidebar.number_input("Target Protein (g)", value=st.session_state.target_protein_val, step=5)
-target_karbo = st.sidebar.number_input("Target Karbo (g)", value=st.session_state.target_karbo_val, step=10)
-target_lemak = st.sidebar.number_input("Target Lemak (g)", value=st.session_state.target_lemak_val, step=5)
-target_air = st.sidebar.number_input("Target Air Minum (ml)", value=2000, step=250)
+target_kalori = st.session_state.target_kalori_val
+target_protein = st.session_state.target_protein_val
+target_karbo = st.session_state.target_karbo_val
+target_lemak = st.session_state.target_lemak_val
+target_air = 2000
 
 
 # ==========================================
-# 4. DASHBOARD UTAMA & TABS
+# 4. ROUTING HALAMAN (PER-PAGE RENDER)
 # ==========================================
 
-st.title("🥗 Food & Nutrition Tracker Pro")
-st.caption(f"Log & Monitoring Nutrisi | Profil: **{user_id.upper()}** | Tanggal: **{selected_date}**")
-
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-    "🍱 Input Makanan", "💧 Hydration Tracker", "📊 Dashboard Visual", 
-    "⚖️ Weight Progress", "📈 Riwayat & Export", "☁️ Cloud Sync"
-])
-
 # ------------------------------------------
-# TAB 1: INPUT MAKANAN
+# HALAMAN 1: DASHBOARD UTAMA
 # ------------------------------------------
+if st.session_state["current_page"] == "Dashboard Utama":
+    st.title("🥗 Food & Nutrition Tracker Pro")
+    st.caption(f"Aplikasi Monitoring Nutrisi Harian | User Active: **[{user_id.upper()}]** | Tanggal: **{selected_date}**")
+
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+        "🍱 Input Makanan", 
+        "💧 Hydration Tracker", 
+        "📊 Dashboard Visual", 
+        "⚖️ Weight Progress", 
+        "📈 Riwayat & Export",
+        "☁️ Cloud Sync"
+    ])
+
+    # --- TAB 1: INPUT MAKANAN ---
 with tab1:
-    subtab1, subtab2 = st.tabs(["🍱 Racik Menu", "✏️ Input Custom Manual"])
+    subtab1, subtab2 = st.tabs(["🍱 Racik Menu (Database)", "✏️ Input Custom Manual"])
     
     with subtab1:
         st.subheader("Racik Piring Makan")
         waktu_makan = st.selectbox("Waktu Makan", ["Makan Pagi", "Makan Siang", "Makan Malam", "Camilan"], key="waktu_racik")
-        item_terpilih = st.multiselect("Pilih Makanan yang Dimakan", list(DATABASE_MAKANAN.keys()))
+        
+        # --- FITUR FILTER NUTRISI MAKANAN ---
+        filter_nutrisi = st.radio(
+            "🎯 Filter Kategori Nutrisi:",
+            ["Semua", "💪 Tinggi Protein", "🔥 Tinggi Kalori", "🍞 Tinggi Karbo", "🥑 Tinggi Lemak"],
+            horizontal=True,
+            key="filter_nutrisi_racik"
+        )
+        
+        # Logika penyaringan opsi makanan dari DATABASE_MAKANAN
+        makanan_terfilter = []
+        for nama, nutrisi in DATABASE_MAKANAN.items():
+            if filter_nutrisi == "Semua":
+                makanan_terfilter.append(nama)
+            elif filter_nutrisi == "💪 Tinggi Protein" and nutrisi.get("protein", 0) >= 15:
+                makanan_terfilter.append(nama)
+            elif filter_nutrisi == "🔥 Tinggi Kalori" and nutrisi.get("kalori", 0) >= 300:
+                makanan_terfilter.append(nama)
+            elif filter_nutrisi == "🍞 Tinggi Karbo" and nutrisi.get("karbo", 0) >= 30:
+                makanan_terfilter.append(nama)
+            elif filter_nutrisi == "🥑 Tinggi Lemak" and nutrisi.get("lemak", 0) >= 10:
+                makanan_terfilter.append(nama)
+        
+        # Multiselect dinamis berdasarkan hasil filter
+        item_terpilih = st.multiselect("Pilih Makanan yang Dimakan", options=makanan_terfilter, placeholder="Choose options")
         
         porsi_dict = {}
         if item_terpilih:
@@ -376,9 +493,7 @@ with tab1:
             cols = st.columns(min(len(item_terpilih), 3))
             for idx, item in enumerate(item_terpilih):
                 with cols[idx % 3]:
-                    porsi_dict[item] = st.number_input(
-                        f"Porsi {item}", min_value=0.1, value=1.0, step=0.1, format="%g", key=f"porsi_{item}"
-                    )
+                    porsi_dict[item] = st.number_input(f"Porsi {item}", min_value=0.1, value=1.0, step=0.1, key=f"porsi_{item}")
             
             if st.button("Tambah Semua ke Log"):
                 for item in item_terpilih:
@@ -386,8 +501,10 @@ with tab1:
                     p = porsi_dict[item]
                     add_food_to_db(
                         user_id, selected_date, waktu_makan, item, p,
-                        round(detail["kalori"] * p, 1), round(detail["protein"] * p, 1),
-                        round(detail["karbo"] * p, 1), round(detail["lemak"] * p, 1)
+                        round(detail["kalori"] * p, 1),
+                        round(detail["protein"] * p, 1),
+                        round(detail["karbo"] * p, 1),
+                        round(detail["lemak"] * p, 1)
                     )
                 st.success("Berhasil menambahkan makanan ke log!")
                 st.rerun()
@@ -396,21 +513,25 @@ with tab1:
         st.subheader("Tambah Makanan Manual")
         with st.form("form_custom_makanan"):
             waktu_custom = st.selectbox("Waktu Makan", ["Makan Pagi", "Makan Siang", "Makan Malam", "Camilan"], key="waktu_custom")
-            nama_custom = st.text_input("Nama Makanan", placeholder="Contoh: Ayam Geprek")
-            c1, c2, c3, c4 = st.columns(4)
-            kal_custom = c1.number_input("Kalori (kcal)", min_value=0.0, step=5.0, format="%g")
-            prot_custom = c2.number_input("Protein (g)", min_value=0.0, step=1.0, format="%g")
-            karbo_custom = c3.number_input("Karbo (g)", min_value=0.0, step=1.0, format="%g")
-            lemak_custom = c4.number_input("Lemak (g)", min_value=0.0, step=1.0, format="%g")
+            nama_custom = st.text_input("Nama Makanan", placeholder="Contoh: Ayam Geprek Sambal Korek")
+            col_c1, col_c2, col_c3, col_c4 = st.columns(4)
+            kal_custom = col_c1.number_input("Kalori (kcal)", min_value=0.0, step=5.0)
+            prot_custom = col_c2.number_input("Protein (g)", min_value=0.0, step=1.0)
+            karbo_custom = col_c3.number_input("Karbo (g)", min_value=0.0, step=1.0)
+            lemak_custom = col_c4.number_input("Lemak (g)", min_value=0.0, step=1.0)
             
-            if st.form_submit_button("Tambah Custom Makanan"):
+            submit_custom = st.form_submit_button("Tambah Custom Makanan")
+            if submit_custom:
                 if nama_custom:
                     add_food_to_db(user_id, selected_date, waktu_custom, f"[Custom] {nama_custom}", 1.0, kal_custom, prot_custom, karbo_custom, lemak_custom)
                     st.success(f"Berhasil menambahkan {nama_custom}!")
                     st.rerun()
+                else:
+                    st.error("Nama makanan tidak boleh kosong!")
 
     st.divider()
-    st.subheader(f"📋 Log Makanan [{user_id.upper()}] ({selected_date})")
+    st.subheader(f"📋 Log Makanan [{user_id.upper()}] - ({selected_date})")
+    
     df_today = load_food_logs(user_id, selected_date)
     
     if not df_today.empty:
@@ -435,144 +556,327 @@ with tab1:
             item_to_delete = st.selectbox("Pilih ID item untuk dihapus", df_today["id"].tolist())
             if st.button("Hapus Item Terpilih"):
                 delete_food_item_db(user_id, item_to_delete)
-                st.success("Item dihapus!")
+                st.success("Item berhasil dihapus!")
                 st.rerun()
         with col_del2:
-            st.write("")
-            st.write("")
+            st.write(""); st.write("")
             if st.button("Hapus Semua Log Hari Ini"):
                 clear_today_food_logs(user_id, selected_date)
+                st.success("Seluruh log hari ini berhasil dihapus!")
                 st.rerun()
     else:
-        st.info("Belum ada log makanan pada tanggal ini.")
+        st.info("Belum ada makanan yang dicatat pada tanggal ini. (Reset otomatis tiap 24 jam)")
+                    
 
-
-# ------------------------------------------
-# TAB 2: HYDRATION TRACKER
-# ------------------------------------------
-with tab2:
-    st.subheader(f"💧 Hydration Tracker - {user_id.upper()}")
-    current_water = get_water_total(user_id, selected_date)
-    
-    w_pct = min(1.0, current_water / target_air) if target_air > 0 else 0
-    st.write(f"### Asupan Hari Ini: **{current_water} / {target_air} ml** ({int(w_pct * 100)}%)")
-    st.progress(w_pct)
-    
-    st.write("#### Tambah Air Cepat:")
-    w_col1, w_col2, w_col3, w_col4 = st.columns(4)
-    if w_col1.button("🥤 +250 ml (Gelas)"):
-        add_water_to_db(user_id, selected_date, 250); st.rerun()
-    if w_col2.button("🍾 +500 ml (Botol Kecil)"):
-        add_water_to_db(user_id, selected_date, 500); st.rerun()
-    if w_col3.button("🍶 +600 ml (Botol Sedang)"):
-        add_water_to_db(user_id, selected_date, 600); st.rerun()
-    if w_col4.button("🪣 +1500 ml (Botol Besar)"):
-        add_water_to_db(user_id, selected_date, 1500); st.rerun()
+    # --- TAB 2: HYDRATION TRACKER ---
+    with tab2:
+        st.subheader(f"💧 Tracking Asupan Air Minum - [{user_id.upper()}]")
         
-    st.divider()
-    w_custom_input = st.number_input("Jumlah Manual (ml):", min_value=50, step=50, value=200)
-    if st.button("Tambah Air Manual"):
-        add_water_to_db(user_id, selected_date, w_custom_input)
-        st.success(f"Berhasil menambahkan {w_custom_input} ml air!")
-        st.rerun()
+        current_water = get_water_total(user_id, selected_date)
+        water_pct = min(1.0, current_water / target_air) if target_air > 0 else 0
+        sisa_air = max(0, target_air - current_water)
         
-    if st.button("Reset Air Hari Ini"):
-        reset_water_db(user_id, selected_date)
-        st.rerun()
+        col_stat1, col_stat2 = st.columns(2)
+        with col_stat1:
+            st.markdown(f"""
+            <div class="macro-card card-lemak">
+                <div class="macro-title">Total Air Minum Hari Ini</div>
+                <div class="macro-value">{current_water} <span style="font-size:1.1rem; font-weight:500;">ml</span></div>
+            </div>
+            """, unsafe_allow_html=True)
+        with col_stat2:
+            st.markdown(f"""
+            <div class="macro-card card-protein">
+                <div class="macro-title">Target Harian</div>
+                <div class="macro-value">{target_air} <span style="font-size:1.1rem; font-weight:500;">ml</span></div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        st.write("")
+        st.progress(water_pct)
+        
+        if current_water >= target_air:
+            st.success("🎉 Selamat! Target asupan air minum hari ini sudah terpenuhi!")
+        else:
+            st.caption(f"💡 Kurang **{sisa_air} ml** lagi untuk mencapai target harianmu.")
 
+        st.divider()
 
-# ------------------------------------------
-# TAB 3: DASHBOARD VISUAL
-# ------------------------------------------
-with tab3:
-    st.subheader(f"🎯 Capaian Target Harian - {user_id.upper()}")
-    df_today = load_food_logs(user_id, selected_date)
-    
-    tot_kal = df_today["Kalori (kcal)"].sum() if not df_today.empty else 0
-    tot_prot = df_today["Protein (g)"].sum() if not df_today.empty else 0
-    tot_karbo = df_today["Karbohidrat (g)"].sum() if not df_today.empty else 0
-    tot_lemak = df_today["Lemak (g)"].sum() if not df_today.empty else 0
-    
-    c1, c2, c3, c4 = st.columns(4)
-    
-    kal_pct = (tot_kal / target_kalori * 100) if target_kalori else 0
-    prot_pct = (tot_prot / target_protein * 100) if target_protein else 0
-    karbo_pct = (tot_karbo / target_karbo * 100) if target_karbo else 0
-    lemak_pct = (tot_lemak / target_lemak * 100) if target_lemak else 0
-
-    with c1:
-        st.markdown(f"""<div class="macro-card card-kalori"><div class="macro-title">🔥 Kalori Harian</div><div class="macro-value">{tot_kal:.0f} <span style="font-size:0.9rem;">/ {target_kalori} kcal</span></div><div class="macro-sub">{tot_kal - target_kalori:+.0f} kcal ({kal_pct:.0f}%)</div></div>""", unsafe_allow_html=True)
-    with c2:
-        st.markdown(f"""<div class="macro-card card-protein"><div class="macro-title">🥩 Protein</div><div class="macro-value">{tot_prot:.1f} <span style="font-size:0.9rem;">/ {target_protein} g</span></div><div class="macro-sub">{tot_prot - target_protein:+.1f} g ({prot_pct:.0f}%)</div></div>""", unsafe_allow_html=True)
-    with c3:
-        st.markdown(f"""<div class="macro-card card-karbo"><div class="macro-title">🌾 Karbohidrat</div><div class="macro-value">{tot_karbo:.1f} <span style="font-size:0.9rem;">/ {target_karbo} g</span></div><div class="macro-sub">{tot_karbo - target_karbo:+.1f} g ({karbo_pct:.0f}%)</div></div>""", unsafe_allow_html=True)
-    with c4:
-        st.markdown(f"""<div class="macro-card card-lemak"><div class="macro-title">🥑 Lemak</div><div class="macro-value">{tot_lemak:.1f} <span style="font-size:0.9rem;">/ {target_lemak} g</span></div><div class="macro-sub">{tot_lemak - target_lemak:+.1f} g ({lemak_pct:.0f}%)</div></div>""", unsafe_allow_html=True)
-
-    col_ring, col_chart2 = st.columns([1, 1])
-    with col_ring:
-        fig_ring = go.Figure()
-        fig_ring.add_trace(go.Pie(values=[min(tot_kal, target_kalori), max(0, target_kalori - tot_kal)], hole=0.75, marker_colors=['#FF5252', 'rgba(255, 82, 82, 0.15)'], textinfo='none', hoverinfo='none', sort=False))
-        fig_ring.add_trace(go.Pie(values=[min(tot_prot, target_protein), max(0, target_protein - tot_prot)], hole=0.55, domain={'x': [0.12, 0.88], 'y': [0.12, 0.88]}, marker_colors=['#4CAF50', 'rgba(76, 175, 80, 0.15)'], textinfo='none', hoverinfo='none', sort=False))
-        fig_ring.update_layout(title="⭕ Activity Rings", showlegend=False, margin=dict(t=40, b=10, l=10, r=10), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', annotations=[{'text': f'<b>{int(kal_pct)}%</b>', 'x': 0.5, 'y': 0.5, 'font_size': 20, 'showarrow': False, 'font_color': '#FFFFFF'}])
-        st.plotly_chart(fig_ring, use_container_width=True)
-
-    with col_chart2:
-        if not df_today.empty:
-            breakdown_time = df_today.groupby("Waktu")["Kalori (kcal)"].sum().reset_index()
-            fig_bar = px.bar(breakdown_time, x="Waktu", y="Kalori (kcal)", title="📊 Kalori per Waktu Makan", text_auto=True)
-            fig_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="#FFFFFF")
-            st.plotly_chart(fig_bar, use_container_width=True)
-
-
-# ------------------------------------------
-# TAB 4: WEIGHT PROGRESS
-# ------------------------------------------
-with tab4:
-    st.subheader(f"⚖️ Tracking Berat Badan - {user_id.upper()}")
-    col_w1, col_w2 = st.columns([1, 2])
-    with col_w1:
-        input_bb = st.number_input("Berat Badan (kg)", min_value=30.0, max_value=200.0, value=65.0, step=0.1)
-        if st.button("Simpan Berat Badan"):
-            log_weight(user_id, selected_date, input_bb)
-            st.success(f"Berat {input_bb} kg tersimpan!")
+        st.write("**Tambah Asupan Air (Cepat):**")
+        btn_c1, btn_c2, btn_c3, btn_c4 = st.columns(4)
+        
+        if btn_c1.button("🥤 +250 ml (Gelas)", use_container_width=True):
+            add_water_to_db(user_id, selected_date, 250)
             st.rerun()
-    with col_w2:
-        df_w = get_weight_history(user_id)
-        if not df_w.empty:
-            fig_w = px.line(df_w, x="tanggal", y="berat", title="Grafik Berat Badan", markers=True)
-            fig_w.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="#FFFFFF")
-            st.plotly_chart(fig_w, use_container_width=True)
+            
+        if btn_c2.button("🍾 +500 ml (Botol)", use_container_width=True):
+            add_water_to_db(user_id, selected_date, 500)
+            st.rerun()
+            
+        if btn_c3.button("🍶 +600 ml (Sedang)", use_container_width=True):
+            add_water_to_db(user_id, selected_date, 600)
+            st.rerun()
+            
+        if btn_c4.button("🪣 +1500 ml (Galon)", use_container_width=True):
+            add_water_to_db(user_id, selected_date, 1500)
+            st.rerun()
 
+        st.divider()
+        
+        col_custom_water, col_reset_water = st.columns([2, 1])
+        with col_custom_water:
+            w_custom_input = st.number_input("Jumlah Manual (ml):", min_value=50, step=50, value=200, key="water_custom_input")
+            if st.button("Tambah Air Manual", use_container_width=True):
+                add_water_to_db(user_id, selected_date, w_custom_input)
+                st.success(f"Berhasil menambahkan {w_custom_input} ml air!")
+                st.rerun()
+                
+        with col_reset_water:
+            st.write(""); st.write("")
+            if st.button("🔄 Reset Air Minum Hari Ini", use_container_width=True):
+                reset_water_db(user_id, selected_date)
+                st.rerun()
+
+    # --- TAB 3: DASHBOARD VISUAL ---
+    with tab3:
+        st.subheader(f"📊 Summary Nutrisi & Schedule Protein - [{user_id.upper()}] ({selected_date})")
+        
+        df_today = load_food_logs(user_id, selected_date)
+        
+        tot_kalori = df_today["Kalori (kcal)"].sum() if not df_today.empty else 0
+        tot_protein = df_today["Protein (g)"].sum() if not df_today.empty else 0
+        tot_karbo = df_today["Karbohidrat (g)"].sum() if not df_today.empty else 0
+        tot_lemak = df_today["Lemak (g)"].sum() if not df_today.empty else 0
+        
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.markdown(f"""
+            <div class="macro-card card-kalori">
+                <div class="macro-title">🔥 Kalori Total</div>
+                <div class="macro-value">{tot_kalori:.0f} <span style="font-size:0.9rem; font-weight:400; color:#8E9BAE;">/ {target_kalori} kcal</span></div>
+                <div class="macro-sub" style="color: {'#FF5252' if tot_kalori > target_kalori else '#4CAF50'};">
+                    {'⚠️ Melebihi target' if tot_kalori > target_kalori else f'Sisa: {target_kalori - tot_kalori:.0f} kcal'}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        with col2:
+            st.markdown(f"""
+            <div class="macro-card card-protein">
+                <div class="macro-title">🥩 Protein</div>
+                <div class="macro-value">{tot_protein:.1f} <span style="font-size:0.9rem; font-weight:400; color:#8E9BAE;">/ {target_protein}g</span></div>
+                <div class="macro-sub" style="color: #4CAF50;">Target Harian</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col3:
+            st.markdown(f"""
+            <div class="macro-card card-karbo">
+                <div class="macro-title">🌾 Karbohidrat</div>
+                <div class="macro-value">{tot_karbo:.1f} <span style="font-size:0.9rem; font-weight:400; color:#8E9BAE;">/ {target_karbo}g</span></div>
+                <div class="macro-sub" style="color: #FFB74D;">Target Harian</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col4:
+            st.markdown(f"""
+            <div class="macro-card card-lemak">
+                <div class="macro-title">🥑 Lemak</div>
+                <div class="macro-value">{tot_lemak:.1f} <span style="font-size:0.9rem; font-weight:400; color:#8E9BAE;">/ {target_lemak}g</span></div>
+                <div class="macro-sub" style="color: #29B6F6;">Target Harian</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.divider()
+        st.subheader("📅 Schedule Protein Timing Harian")
+        st.caption("Target protein harian dipecah ideal ke 4 jadwal makan untuk penyerapan optimal:")
+        
+        target_prot_per_meal = target_protein / 4.0
+        meals = ["Makan Pagi", "Makan Siang", "Makan Malam", "Camilan"]
+        
+        cols_meal = st.columns(4)
+        for idx, m in enumerate(meals):
+            with cols_meal[idx]:
+                prot_makan = df_today[df_today["Waktu"] == m]["Protein (g)"].sum() if not df_today.empty else 0.0
+                pct_makan = min(1.0, prot_makan / target_prot_per_meal) if target_prot_per_meal > 0 else 0
+                
+                st.markdown(f"**{m}**")
+                st.write(f"🥩 **{prot_makan:.1f}** / {target_prot_per_meal:.1f} g")
+                st.progress(pct_makan)
+
+        st.divider()
+        col_chart1, col_chart2 = st.columns(2)
+        
+        with col_chart1:
+            st.subheader("Proporsi Makronutrisi")
+            if tot_protein == 0 and tot_karbo == 0 and tot_lemak == 0:
+                st.info("Belum ada data makronutrisi hari ini.")
+            else:
+                df_macro = pd.DataFrame({
+                    'Nutrisi': ['Protein', 'Karbohidrat', 'Lemak'],
+                    'Gram': [tot_protein, tot_karbo, tot_lemak]
+                })
+                fig_pie = px.pie(
+                    df_macro, values='Gram', names='Nutrisi',
+                    color='Nutrisi',
+                    color_discrete_map={'Protein':'#4CAF50', 'Karbohidrat':'#FFB74D', 'Lemak':'#29B6F6'},
+                    hole=0.4
+                )
+                fig_pie.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="#FFFFFF")
+                st.plotly_chart(fig_pie, use_container_width=True)
+                
+        with col_chart2:
+            st.subheader("Kalori per Waktu Makan")
+            if not df_today.empty:
+                df_waktu = df_today.groupby("Waktu")["Kalori (kcal)"].sum().reset_index()
+                fig_bar = px.bar(
+                    df_waktu, x="Waktu", y="Kalori (kcal)",
+                    color="Waktu",
+                    color_discrete_sequence=px.colors.qualitative.Pastel
+                )
+                fig_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="#FFFFFF")
+                st.plotly_chart(fig_bar, use_container_width=True)
+            else:
+                st.info("Belum ada data kalori per waktu makan.")
+
+    # --- TAB 4: WEIGHT PROGRESS ---
+    with tab4:
+        st.subheader(f"⚖️ Catat & Pantau Berat Badan - [{user_id.upper()}]")
+        
+        col_w1, col_w2 = st.columns([1, 2])
+        with col_w1:
+            st.write("**Log Berat Badan Hari Ini:**")
+            input_bb = st.number_input("Berat Badan (kg)", min_value=30.0, max_value=200.0, value=65.0, step=0.1, key="weight_input")
+            if st.button("Simpan Berat Badan"):
+                log_weight(user_id, selected_date, input_bb)
+                st.success(f"Berat badan {input_bb} kg tersimpan untuk {selected_date}!")
+                st.rerun()
+                
+        with col_w2:
+            df_w = get_weight_history(user_id)
+            if not df_w.empty:
+                st.write("**Riwayat & Tren Berat Badan:**")
+                fig_w = px.line(df_w, x="tanggal", y="berat", markers=True, title="Progress Berat Badan (kg)")
+                fig_w.update_traces(line_color='#4CAF50', marker_size=8)
+                fig_w.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="#FFFFFF")
+                st.plotly_chart(fig_w, use_container_width=True)
+                st.dataframe(df_w, use_container_width=True)
+            else:
+                st.info("Belum ada riwayat berat badan yang dicatat.")
+
+    # --- TAB 5: RIWAYAT & EXPORT PDF ---
+    with tab5:
+        st.subheader(f"📈 Riwayat Tren 7 Hari & Export PDF - [{user_id.upper()}]")
+        
+        df_today_export = load_food_logs(user_id, selected_date)
+        water_export = get_water_total(user_id, selected_date)
+        
+        pdf_bytes = generate_pdf_report(
+            user_id, selected_date, df_today_export, water_export, 
+            target_kalori, target_protein, target_karbo, target_lemak
+        )
+        
+        st.download_button(
+            label="📄 Download PDF Tracker Report Harian",
+            data=pdf_bytes,
+            file_name=f"NutriTrack_Report_{user_id}_{selected_date}.pdf",
+            mime="application/pdf"
+        )
+        
+        st.divider()
+        df_history = get_weekly_history(user_id)
+        
+        if not df_history.empty:
+            fig_hist = px.bar(
+                df_history, x="tanggal", y="total_kalori",
+                title="Total Kalori Harian (7 Hari Terakhir)",
+                text="total_kalori",
+                color_discrete_sequence=['#FF5252']
+            )
+            fig_hist.add_hline(y=target_kalori, line_dash="dash", line_color="green", annotation_text="Target Kalori")
+            fig_hist.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="#FFFFFF")
+            st.plotly_chart(fig_hist, use_container_width=True)
+            
+            st.subheader("Data Riwayat")
+            st.dataframe(df_history, use_container_width=True)
+        else:
+            st.info("Belum ada riwayat data makanan.")
+
+    # --- TAB 6: CLOUD SYNC ---
+    with tab6:
+        st.subheader("☁️ Google Sheets Cloud Sync")
+        st.caption("Pilih opsi integrasi cloud untuk backup data kamu secara permanen.")
+        
+        sheet_url = st.text_input("Google Sheets Link / App Script URL:", placeholder="https://docs.google.com/spreadsheets/d/...")
+        
+        col_cs1, col_cs2 = st.columns(2)
+        with col_cs1:
+            if st.button("📤 Backup Local DB ke Cloud"):
+                st.info("Proses backup ke Google Sheets...")
+        with col_cs2:
+            if st.button("📥 Sync/Fetch Data dari Cloud"):
+                st.info("Proses sinkronisasi data...")
 
 # ------------------------------------------
-# TAB 5: RIWAYAT & EXPORT
+# HALAMAN 2: PENGATURAN & KALKULATOR BMR/TDEE
 # ------------------------------------------
-with tab5:
-    st.subheader("📈 Riwayat Log 7 Hari Terakhir")
-    df_history = get_weekly_history(user_id)
-    if not df_history.empty:
-        fig_line = px.line(df_history, x="tanggal", y="total_kalori", title="Tren Asupan Kalori Harian", markers=True)
-        fig_line.add_hline(y=target_kalori, line_dash="dash", line_color="red")
-        fig_line.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="#FFFFFF")
-        st.plotly_chart(fig_line, use_container_width=True)
-        st.dataframe(df_history, use_container_width=True)
+            elif st.session_state["current_page"] == "Pengaturan":
+                st.title("⚙️ Pengaturan Profil & Kalkulator Nutrisi")
+    st.caption("Sesuaikan target nutrisi harian kamu berdasarkan kalkulator BMR/TDEE.")
 
+    col_set1, col_set2 = st.columns(2)
 
-# ------------------------------------------
-# TAB 6: GOOGLE SHEETS SYNC
-# ------------------------------------------
-with tab6:
-    st.subheader("☁️ Sinkronisasi Data ke Google Sheets")
-    gsheet_url = st.text_input("Masukkan Link Public Google Sheets kamu:")
-    if st.button("Sync Database Sekarang"):
-        if gsheet_url:
-            try:
-                conn_gs = st.connection("gsheets", type=GSheetsConnection)
-                conn_local = sqlite3.connect("nutrition_tracker.db")
-                df_to_sync = pd.read_sql_query("SELECT * FROM food_logs WHERE user_id = ?", conn_local, params=(user_id,))
-                conn_local.close()
-                conn_gs.update(spreadsheet=gsheet_url, data=df_to_sync)
-                st.success("✅ Berhasil Backup data ke Google Sheets!")
-            except Exception as e:
-                st.error(f"Gagal sync: {e}")
+    with col_set1:
+        st.subheader("⚖️ Kalkulator BMR & TDEE")
+        list_jk = ["Pria", "Wanita"]
+        gender = st.radio("Jenis Kelamin", list_jk, horizontal=True)
+        usia = st.number_input("Usia (tahun)", min_value=10, max_value=100, value=22)
+        bb = st.number_input("Berat Badan (kg)", min_value=30.0, max_value=200.0, value=65.0, step=0.5)
+        tb = st.number_input("Tinggi Badan (cm)", min_value=100.0, max_value=230.0, value=170.0, step=0.5)
+        
+        list_aktivitas = [
+            "Sedentary (Jarang olahraga)", "Ringan (Olahraga 1-3 hari/minggu)",
+            "Sedang (Olahraga 3-5 hari/minggu)", "Berat (Olahraga 6-7 hari/minggu)",
+            "Sangat Berat (Atlet / Pekerja Fisik)"
+        ]
+        aktivitas = st.selectbox("Tingkat Aktivitas", list_aktivitas)
+        
+        list_goal = [
+            "Maintenance (Jaga BB)", "Defisit Kalori (-500 kcal / Turun BB)", "Surplus Kalori (+300 kcal / Muscle Gain)"
+        ]
+        goal = st.selectbox("Target Kebugaran", list_goal)
+
+        bmr = (10 * bb) + (6.25 * tb) - (5 * usia) + (5 if gender == "Pria" else -161)
+        mult_dict = {
+            "Sedentary (Jarang olahraga)": 1.2, "Ringan (Olahraga 1-3 hari/minggu)": 1.375,
+            "Sedang (Olahraga 3-5 hari/minggu)": 1.55, "Berat (Olahraga 6-7 hari/minggu)": 1.725,
+            "Sangat Berat (Atlet / Pekerja Fisik)": 1.9
+        }
+        tdee = bmr * mult_dict[aktivitas]
+        
+        target_calc = tdee
+        if "Defisit" in goal: target_calc -= 500
+        elif "Surplus" in goal: target_calc += 300
+            
+        st.info(f"**BMR:** {int(bmr)} kcal | **TDEE:** {int(tdee)} kcal\n\n👉 Rekomendasi Target: **{int(target_calc)} kcal**")
+        
+        if st.button("Gunakan Hasil Rekomendasi Ini", use_container_width=True):
+            st.session_state.target_kalori_val = int(target_calc)
+            st.session_state.target_protein_val = int(bb * 1.8)
+            st.session_state.target_karbo_val = int((target_calc * 0.5) / 4)
+            st.session_state.target_lemak_val = int((target_calc * 0.25) / 9)
+            st.success("Target berhasil diupdate! Silakan periksa di menu Custom Target.")
+
+    with col_set2:
+        st.subheader("🎯 Custom Target Harian Manual")
+        new_kal = st.number_input("Target Kalori (kcal)", value=st.session_state.target_kalori_val, step=50)
+        new_prot = st.number_input("Target Protein (g)", value=st.session_state.target_protein_val, step=5)
+        new_karb = st.number_input("Target Karbo (g)", value=st.session_state.target_karbo_val, step=10)
+        new_lem = st.number_input("Target Lemak (g)", value=st.session_state.target_lemak_val, step=5)
+        
+        if st.button("Simpan Target Harian", use_container_width=True):
+            st.session_state.target_kalori_val = new_kal
+            st.session_state.target_protein_val = new_prot
+            st.session_state.target_karbo_val = new_karb
+            st.session_state.target_lemak_val = new_lem
+            st.success("Target harian manual berhasil disimpan!")
