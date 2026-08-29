@@ -113,7 +113,6 @@ def init_db():
 init_db()
 
 DATABASE_MAKANAN = {
-    # --- DATA LAMA KAMU ---
     "Nasi Putih (1 piring/150g)": {"kalori": 204, "protein": 4.2, "karbo": 44.0, "lemak": 0.4},
     "Oatmeal (40g dry)": {"kalori": 150, "protein": 5.0, "karbo": 27.0, "lemak": 2.5},
     "Nasi Goreng (1 piring)": {"kalori": 510, "protein": 12.5, "karbo": 65.0, "lemak": 21.0},
@@ -129,8 +128,6 @@ DATABASE_MAKANAN = {
     "Kebab Daging (1 pcs)": {"kalori": 520, "protein": 20.0, "karbo": 45.0, "lemak": 28.0},
     "Sei Sapi (100g)": {"kalori": 240, "protein": 26.0, "karbo": 2.0, "lemak": 14.0},
     "Sate Ayam (10 tusuk)": {"kalori": 340, "protein": 28.0, "karbo": 12.0, "lemak": 20.0},
-
-    # --- TAMBAHAN MENU MAKAN PAGI ---
     "Telur Dadar Sayur (1 porsi)": {"kalori": 170, "protein": 13.0, "karbo": 3.0, "lemak": 12.0},
     "Roti Tawar Gandum (2 lembar)": {"kalori": 130, "protein": 5.0, "karbo": 24.0, "lemak": 1.5},
     "Tempe Goreng Tepung (1 potong)": {"kalori": 90, "protein": 6.0, "karbo": 5.0, "lemak": 5.0},
@@ -140,8 +137,6 @@ DATABASE_MAKANAN = {
     "Lontong Sayur Telur Kuah Dikit": {"kalori": 270, "protein": 11.0, "karbo": 34.0, "lemak": 10.0},
     "Tahu Kukus Isi Daging (2 pcs)": {"kalori": 160, "protein": 14.0, "karbo": 5.0, "lemak": 9.0},
     "Oatmeal Instant + Susu Low Fat": {"kalori": 230, "protein": 10.0, "karbo": 36.0, "lemak": 5.0},
-
-    # --- TAMBAHAN MENU MAKAN SIANG ---
     "Ayam Goreng Lengkuas - Dada (1 potong)": {"kalori": 240, "protein": 35.0, "karbo": 2.0, "lemak": 10.0},
     "Ayam Bakar Kecap - Dada (1 potong)": {"kalori": 220, "protein": 35.0, "karbo": 5.0, "lemak": 6.0},
     "Ikan Lele Goreng (1 ekor)": {"kalori": 200, "protein": 18.0, "karbo": 2.0, "lemak": 13.0},
@@ -153,8 +148,6 @@ DATABASE_MAKANAN = {
     "Pecel Lele + Lalapan (Tanpa Nasi)": {"kalori": 220, "protein": 18.0, "karbo": 4.0, "lemak": 14.0},
     "Sayur Asem (1 mangkok)": {"kalori": 80, "protein": 2.0, "karbo": 14.0, "lemak": 2.0},
     "Ayam Suwir Balado - Dada (100g)": {"kalori": 190, "protein": 30.0, "karbo": 4.0, "lemak": 6.0},
-
-    # --- TAMBAHAN MENU MAKAN MALAM ---
     "Sup Ayam Bening - Dada (1 mangkok)": {"kalori": 190, "protein": 25.0, "karbo": 10.0, "lemak": 5.0},
     "Capcay Ayam Kuah (1 porsi)": {"kalori": 210, "protein": 22.0, "karbo": 12.0, "lemak": 8.0},
     "Sate Ayam Tanpa Bumbu Kacang (8 tusuk)": {"kalori": 200, "protein": 32.0, "karbo": 2.0, "lemak": 6.0},
@@ -165,8 +158,6 @@ DATABASE_MAKANAN = {
     "Tumis Tahu Jamur (1 porsi)": {"kalori": 160, "protein": 12.0, "karbo": 8.0, "lemak": 9.0},
     "Soto Daging Bening Tanpa Santan": {"kalori": 220, "protein": 22.0, "karbo": 6.0, "lemak": 12.0},
     "Kentang Rebus (100g)": {"kalori": 87, "protein": 1.9, "karbo": 20.0, "lemak": 0.1},
-
-    # --- TAMBAHAN MENU CEMILAN ---
     "Edamame Rebus (100g)": {"kalori": 120, "protein": 11.0, "karbo": 10.0, "lemak": 5.0},
     "Apel Red / Fuji (1 buah)": {"kalori": 80, "protein": 0.4, "karbo": 21.0, "lemak": 0.2},
     "Pisang Ambon / Sunpride (1 buah)": {"kalori": 90, "protein": 1.1, "karbo": 23.0, "lemak": 0.3},
@@ -177,8 +168,6 @@ DATABASE_MAKANAN = {
     "Kacang Tanah Sangrai (25g)": {"kalori": 140, "protein": 6.0, "karbo": 5.0, "lemak": 12.0},
     "Keju Slice Low Fat (2 lembar)": {"kalori": 90, "protein": 8.0, "karbo": 2.0, "lemak": 5.0},
     "Dark Chocolate 70%+ (2 kotak/20g)": {"kalori": 110, "protein": 1.5, "karbo": 9.0, "lemak": 8.0},
-
-    # --- TAMBAHAN MENU SUSHI ---
     "Salmon Nigiri (2 pcs)": {"kalori": 130, "protein": 7.0, "karbo": 15.0, "lemak": 3.5},
     "Tuna Nigiri (2 pcs)": {"kalori": 110, "protein": 8.0, "karbo": 15.0, "lemak": 1.0},
     "Salmon Maki Roll (6 pcs)": {"kalori": 180, "protein": 9.0, "karbo": 28.0, "lemak": 3.0},
@@ -294,20 +283,10 @@ def get_weekly_history(user_id):
     conn.close()
     return df
 
-def color_waktu(waktu):
-    colors = {
-        "Makan Pagi": "background-color: rgba(255, 235, 59, 0.2); color: #FFF59D; font-weight: 600;",
-        "Makan Siang": "background-color: rgba(255, 152, 0, 0.2); color: #FFCC80; font-weight: 600;",
-        "Makan Malam": "background-color: rgba(156, 39, 176, 0.2); color: #E1BEE7; font-weight: 600;",
-        "Camilan": "background-color: rgba(76, 175, 80, 0.2); color: #A5D6A7; font-weight: 600;"
-    }
-    return colors.get(waktu, '')
-
 class PDFWithWatermark(FPDF):
     def header(self):
         BASE_DIR = os.path.dirname(os.path.abspath(__file__))
         logo_path = os.path.join(BASE_DIR, "logo-removebg-preview.png")
-        
         if os.path.exists(logo_path):
             try:
                 self.set_alpha(0.15)
@@ -366,40 +345,81 @@ def generate_pdf_report(user_id, tanggal, df_food, water_ml, target_kal, target_
         
     return bytes(pdf.output())
 
+
 # ==========================================
-# 3. SIDEBAR (NAVIGASI BUTTON & PROFIL)
+# 3. MANAJEMEN URL QUERY PARAMS & STATE
 # ==========================================
 
+# Baca query params yang ada di URL (misal dibuka via bookmark)
+query_params = st.query_params
+
+# Sync Halaman Utama
+default_page = query_params.get("page", "Dashboard Utama")
 if "current_page" not in st.session_state:
-    st.session_state["current_page"] = "Dashboard Utama"
+    st.session_state["current_page"] = default_page
+
+# Sync Profil User
+default_user = query_params.get("user", "User1")
+if "user_id_input" not in st.session_state:
+    st.session_state["user_id_input"] = default_user
+
+# Sync Kalkulator BMR & TDEE (Agar bookmark menyimpan data kalkulator)
+st.session_state.setdefault("calc_gender", query_params.get("gender", "Pria"))
+st.session_state.setdefault("calc_usia", int(query_params.get("usia", 22)))
+st.session_state.setdefault("calc_bb", float(query_params.get("bb", 65.0)))
+st.session_state.setdefault("calc_tb", float(query_params.get("tb", 170.0)))
+st.session_state.setdefault("calc_aktivitas", query_params.get("aktivitas", "Ringan (Olahraga 1-3 hari/minggu)"))
+st.session_state.setdefault("calc_goal", query_params.get("goal", "Defisit Kalori (-500 kcal / Turun BB)"))
+
+# Sync Target Nutrisi Harian
+st.session_state.setdefault('target_kalori_val', int(query_params.get("target_kal", 2000)))
+st.session_state.setdefault('target_protein_val', int(query_params.get("target_prot", 120)))
+st.session_state.setdefault('target_karbo_val', int(query_params.get("target_karb", 250)))
+st.session_state.setdefault('target_lemak_val', int(query_params.get("target_lem", 60)))
+
+def update_url_params():
+    """Fungsi memperbarui URL browser otomatis agar bisa di-bookmark kapan pun."""
+    st.query_params["page"] = st.session_state["current_page"]
+    st.query_params["user"] = st.session_state["user_id_input"]
+    st.query_params["gender"] = st.session_state["calc_gender"]
+    st.query_params["usia"] = str(st.session_state["calc_usia"])
+    st.query_params["bb"] = str(st.session_state["calc_bb"])
+    st.query_params["tb"] = str(st.session_state["calc_tb"])
+    st.query_params["aktivitas"] = st.session_state["calc_aktivitas"]
+    st.query_params["goal"] = st.session_state["calc_goal"]
+    st.query_params["target_kal"] = str(st.session_state["target_kalori_val"])
+    st.query_params["target_prot"] = str(st.session_state["target_protein_val"])
+    st.query_params["target_karb"] = str(st.session_state["target_karbo_val"])
+    st.query_params["target_lem"] = str(st.session_state["target_lemak_val"])
+
+
+# ==========================================
+# 4. SIDEBAR & NAVIGASI
+# ==========================================
 
 st.sidebar.title("📌 Menu Navigasi")
 
 if st.sidebar.button("📊 Dashboard Tracker", use_container_width=True):
     st.session_state["current_page"] = "Dashboard Utama"
+    update_url_params()
+    st.rerun()
 
 if st.sidebar.button("⚙️ Pengaturan & Kalkulator", use_container_width=True):
     st.session_state["current_page"] = "Pengaturan"
+    update_url_params()
+    st.rerun()
 
 st.sidebar.divider()
-
-query_params = st.query_params
-default_user = query_params.get("user", "User1")
-
-if "user_id_input" not in st.session_state:
-    st.session_state["user_id_input"] = default_user
 
 st.sidebar.subheader("👤 Pilih Profil Pengguna")
 raw_user = st.sidebar.text_input(
     "Masukkan Nama/ID Kamu:", 
     key="user_id_input",
+    on_change=update_url_params,
     help="Gunakan nama unikmu agar data tidak kecampur dengan orang lain"
 )
 
 user_id = raw_user.strip().lower() if raw_user.strip() else "guest"
-
-if st.query_params.get("user") != user_id:
-    st.query_params["user"] = user_id
 
 streak_days = get_streak_count(user_id)
 st.sidebar.markdown(f"### 🔥 Streak **[{user_id.upper()}]**: **{streak_days} Hari**")
@@ -413,21 +433,18 @@ if use_today_auto:
 else:
     selected_date = st.sidebar.date_input("🗓️ Pilih Tanggal Log", datetime.date.today()).strftime("%Y-%m-%d")
 
-# Target Harian State Default
-st.session_state.setdefault('target_kalori_val', 2000)
-st.session_state.setdefault('target_protein_val', 120)
-st.session_state.setdefault('target_karbo_val', 250)
-st.session_state.setdefault('target_lemak_val', 60)
-
 target_kalori = st.session_state.target_kalori_val
 target_protein = st.session_state.target_protein_val
 target_karbo = st.session_state.target_karbo_val
 target_lemak = st.session_state.target_lemak_val
 target_air = 2000
 
+# Panggil pembaruan URL awal
+update_url_params()
+
 
 # ==========================================
-# 4. ROUTING HALAMAN (PER-PAGE RENDER)
+# 5. ROUTING HALAMAN
 # ==========================================
 
 # ------------------------------------------
@@ -454,7 +471,6 @@ if st.session_state["current_page"] == "Dashboard Utama":
             st.subheader("Racik Piring Makan")
             waktu_makan = st.selectbox("Waktu Makan", ["Makan Pagi", "Makan Siang", "Makan Malam", "Camilan"], key="waktu_racik")
             
-            # --- FITUR FILTER NUTRISI MAKANAN ---
             filter_nutrisi = st.radio(
                 "🎯 Filter Kategori Nutrisi:",
                 ["Semua", "💪 Tinggi Protein", "🔥 Tinggi Kalori", "🍞 Tinggi Karbo", "🥑 Tinggi Lemak"],
@@ -462,7 +478,6 @@ if st.session_state["current_page"] == "Dashboard Utama":
                 key="filter_nutrisi_racik"
             )
             
-            # Logika penyaringan opsi makanan dari DATABASE_MAKANAN
             makanan_terfilter = []
             for nama, nutrisi in DATABASE_MAKANAN.items():
                 if filter_nutrisi == "Semua":
@@ -476,7 +491,6 @@ if st.session_state["current_page"] == "Dashboard Utama":
                 elif filter_nutrisi == "🥑 Tinggi Lemak" and nutrisi.get("lemak", 0) >= 10:
                     makanan_terfilter.append(nama)
             
-            # Multiselect dinamis berdasarkan hasil filter
             item_terpilih = st.multiselect("Pilih Makanan yang Dimakan", options=makanan_terfilter, placeholder="Choose options")
             
             porsi_dict = {}
@@ -815,14 +829,6 @@ elif st.session_state["current_page"] == "Pengaturan":
     st.title("⚙️ Pengaturan Profil & Kalkulator Nutrisi")
     st.caption("Sesuaikan target nutrisi harian kamu berdasarkan kalkulator BMR/TDEE.")
 
-    # Inisialisasi Session State kalkulator jika belum ada
-    st.session_state.setdefault("calc_gender", "Pria")
-    st.session_state.setdefault("calc_usia", 22)
-    st.session_state.setdefault("calc_bb", 65.0)
-    st.session_state.setdefault("calc_tb", 170.0)
-    st.session_state.setdefault("calc_aktivitas", "Ringan (Olahraga 1-3 hari/minggu)")
-    st.session_state.setdefault("calc_goal", "Defisit Kalori (-500 kcal / Turun BB)")
-
     col_set1, col_set2 = st.columns(2)
 
     with col_set1:
@@ -842,13 +848,13 @@ elif st.session_state["current_page"] == "Pengaturan":
             "Surplus Kalori (+300 kcal / Muscle Gain)"
         ]
 
-        # Form Input Kalkulator (Semua di-bind ke key)
-        gender = st.radio("Jenis Kelamin", list_jk, horizontal=True, key="calc_gender")
-        usia = st.number_input("Usia (tahun)", min_value=10, max_value=100, key="calc_usia")
-        bb = st.number_input("Berat Badan (kg)", min_value=30.0, max_value=200.0, step=0.5, key="calc_bb")
-        tb = st.number_input("Tinggi Badan (cm)", min_value=100.0, max_value=230.0, step=0.5, key="calc_tb")
-        aktivitas = st.selectbox("Tingkat Aktivitas", list_aktivitas, key="calc_aktivitas")
-        goal = st.selectbox("Target Kebugaran", list_goal, key="calc_goal")
+        # Form Input Kalkulator (Semua di-bind & trigger update URL)
+        gender = st.radio("Jenis Kelamin", list_jk, horizontal=True, key="calc_gender", on_change=update_url_params)
+        usia = st.number_input("Usia (tahun)", min_value=10, max_value=100, key="calc_usia", on_change=update_url_params)
+        bb = st.number_input("Berat Badan (kg)", min_value=30.0, max_value=200.0, step=0.5, key="calc_bb", on_change=update_url_params)
+        tb = st.number_input("Tinggi Badan (cm)", min_value=100.0, max_value=230.0, step=0.5, key="calc_tb", on_change=update_url_params)
+        aktivitas = st.selectbox("Tingkat Aktivitas", list_aktivitas, key="calc_aktivitas", on_change=update_url_params)
+        goal = st.selectbox("Target Kebugaran", list_goal, key="calc_goal", on_change=update_url_params)
 
         # Kalkulasi BMR & TDEE
         bmr = (10 * bb) + (6.25 * tb) - (5 * usia) + (5 if gender == "Pria" else -161)
@@ -872,16 +878,18 @@ elif st.session_state["current_page"] == "Pengaturan":
             st.session_state.target_protein_val = int(bb * 1.8)
             st.session_state.target_karbo_val = int((target_calc * 0.5) / 4)
             st.session_state.target_lemak_val = int((target_calc * 0.25) / 9)
+            update_url_params()
             st.success("Target berhasil diupdate! Silakan periksa di menu Custom Target.")
 
     with col_set2:
         st.subheader("🎯 Custom Target Harian Manual")
         
-        # Form Input Custom Target (Di-bind ke key)
-        new_kal = st.number_input("Target Kalori (kcal)", step=50, key="target_kalori_val")
-        new_prot = st.number_input("Target Protein (g)", step=5, key="target_protein_val")
-        new_karb = st.number_input("Target Karbo (g)", step=10, key="target_karbo_val")
-        new_lem = st.number_input("Target Lemak (g)", step=5, key="target_lemak_val")
+        # Form Input Custom Target (Di-bind ke key & sync URL)
+        new_kal = st.number_input("Target Kalori (kcal)", step=50, key="target_kalori_val", on_change=update_url_params)
+        new_prot = st.number_input("Target Protein (g)", step=5, key="target_protein_val", on_change=update_url_params)
+        new_karb = st.number_input("Target Karbo (g)", step=10, key="target_karbo_val", on_change=update_url_params)
+        new_lem = st.number_input("Target Lemak (g)", step=5, key="target_lemak_val", on_change=update_url_params)
         
         if st.button("Simpan Target Harian", use_container_width=True):
+            update_url_params()
             st.success("Target harian manual berhasil disimpan!")
