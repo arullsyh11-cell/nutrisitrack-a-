@@ -19,19 +19,14 @@ st.set_page_config(
 # Custom CSS Theme (Modern Dark Glassmorphism, Apple Health Cards, Mobile Polish)
 st.markdown("""
 <style>
-    /* Global Styles & Font */
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
     
     html, body, [class*="css"] {
         font-family: 'Plus Jakarta Sans', sans-serif;
     }
-    
-    /* Main Background Accent */
     .stApp {
         background: radial-gradient(circle at 10% 20%, rgba(18, 24, 38, 1) 0%, rgba(9, 13, 22, 1) 90%);
     }
-
-    /* Modern Metric Cards (Apple Health Style) */
     .macro-card {
         background: rgba(255, 255, 255, 0.03);
         border: 1px solid rgba(255, 255, 255, 0.08);
@@ -46,69 +41,34 @@ st.markdown("""
         border-color: rgba(255, 255, 255, 0.2);
     }
     .macro-title {
-        font-size: 0.82rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: #8E9BAE;
-        margin-bottom: 6px;
+        font-size: 0.82rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #8E9BAE; margin-bottom: 6px;
     }
-    .macro-value {
-        font-size: 1.6rem;
-        font-weight: 800;
-        color: #FFFFFF;
-    }
-    .macro-sub {
-        font-size: 0.78rem;
-        margin-top: 4px;
-        font-weight: 500;
-    }
+    .macro-value { font-size: 1.6rem; font-weight: 800; color: #FFFFFF; }
+    .macro-sub { font-size: 0.78rem; margin-top: 4px; font-weight: 500; }
     
-    /* Dynamic Theme Colors for Cards */
     .card-kalori { border-left: 4px solid #FF5252; }
     .card-protein { border-left: 4px solid #4CAF50; }
     .card-karbo { border-left: 4px solid #FFB74D; }
     .card-lemak { border-left: 4px solid #29B6F6; }
     
-    /* Custom Sidebar Styling */
     section[data-testid="stSidebar"] {
         background-color: rgba(13, 17, 28, 0.85);
         border-right: 1px solid rgba(255, 255, 255, 0.06);
     }
-
-    /* Streamlit Tabs Customization */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        background-color: rgba(255, 255, 255, 0.03);
-        padding: 6px;
-        border-radius: 14px;
-        border: 1px solid rgba(255, 255, 255, 0.05);
+        gap: 8px; background-color: rgba(255, 255, 255, 0.03); padding: 6px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.05);
     }
     .stTabs [data-baseweb="tab"] {
-        border-radius: 10px;
-        padding: 8px 16px;
-        color: #8E9BAE;
-        font-weight: 600;
-        border: none !important;
+        border-radius: 10px; padding: 8px 16px; color: #8E9BAE; font-weight: 600; border: none !important;
     }
     .stTabs [aria-selected="true"] {
-        background-color: rgba(255, 255, 255, 0.1) !important;
-        color: #FFFFFF !important;
+        background-color: rgba(255, 255, 255, 0.1) !important; color: #FFFFFF !important;
     }
-
-    /* Custom Buttons */
     .stButton>button {
-        border-radius: 10px;
-        font-weight: 600;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        transition: all 0.2s ease;
+        border-radius: 10px; font-weight: 600; border: 1px solid rgba(255, 255, 255, 0.1); transition: all 0.2s ease;
     }
-    .stButton>button:hover {
-        border-color: #4CAF50;
-        color: #4CAF50;
-    }
-
-    /* Mobile Responsive Optimizations */
+    .stButton>button:hover { border-color: #4CAF50; color: #4CAF50; }
+    
     @media (max-width: 768px) {
         .macro-value { font-size: 1.3rem; }
         .stTabs [data-baseweb="tab"] { padding: 6px 10px; font-size: 0.85rem; }
@@ -120,31 +80,28 @@ st.markdown("""
 def init_db():
     conn = sqlite3.connect("nutrition_tracker.db")
     c = conn.cursor()
+    # Ditambahkan kolom 'user_id' di setiap tabel
     c.execute('''
         CREATE TABLE IF NOT EXISTS food_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            tanggal TEXT,
-            waktu TEXT,
-            makanan TEXT,
-            porsi REAL,
-            kalori REAL,
-            protein REAL,
-            karbo REAL,
-            lemak REAL
+            user_id TEXT DEFAULT 'guest',
+            tanggal TEXT, waktu TEXT, makanan TEXT, porsi REAL,
+            kalori REAL, protein REAL, karbo REAL, lemak REAL
         )
     ''')
     c.execute('''
         CREATE TABLE IF NOT EXISTS water_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            tanggal TEXT,
-            jumlah_ml INTEGER
+            user_id TEXT DEFAULT 'guest',
+            tanggal TEXT, jumlah_ml INTEGER
         )
     ''')
     c.execute('''
         CREATE TABLE IF NOT EXISTS weight_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            tanggal TEXT UNIQUE,
-            berat REAL
+            user_id TEXT DEFAULT 'guest',
+            tanggal TEXT, berat REAL,
+            UNIQUE(user_id, tanggal)
         )
     ''')
     conn.commit()
@@ -178,167 +135,155 @@ DATABASE_MAKANAN = {
 }
 
 # ==========================================
-# 2. DATABASE HELPER FUNCTIONS
+# 2. DATABASE HELPER FUNCTIONS (WITH USER ID)
 # ==========================================
 
-def add_food_to_db(tanggal, waktu, makanan, porsi, kalori, protein, karbo, lemak):
+def add_food_to_db(user_id, tanggal, waktu, makanan, porsi, kalori, protein, karbo, lemak):
     conn = sqlite3.connect("nutrition_tracker.db")
     c = conn.cursor()
     c.execute('''
-        INSERT INTO food_logs (tanggal, waktu, makanan, porsi, kalori, protein, karbo, lemak)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (tanggal, waktu, makanan, porsi, kalori, protein, karbo, lemak))
+        INSERT INTO food_logs (user_id, tanggal, waktu, makanan, porsi, kalori, protein, karbo, lemak)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (user_id, tanggal, waktu, makanan, porsi, kalori, protein, karbo, lemak))
     conn.commit()
     conn.close()
 
-def load_food_logs(tanggal):
+def load_food_logs(user_id, tanggal):
     conn = sqlite3.connect("nutrition_tracker.db")
     df = pd.read_sql_query(
         "SELECT id, waktu as Waktu, makanan as Makanan, porsi as Porsi, kalori as [Kalori (kcal)], "
         "protein as [Protein (g)], karbo as [Karbohidrat (g)], lemak as [Lemak (g)] "
-        "FROM food_logs WHERE tanggal = ?", conn, params=(tanggal,)
+        "FROM food_logs WHERE user_id = ? AND tanggal = ?", conn, params=(user_id, tanggal)
     )
     conn.close()
     return df
 
-def delete_food_item_db(item_id):
+def delete_food_item_db(user_id, item_id):
     conn = sqlite3.connect("nutrition_tracker.db")
     c = conn.cursor()
-    c.execute("DELETE FROM food_logs WHERE id = ?", (item_id,))
+    c.execute("DELETE FROM food_logs WHERE user_id = ? AND id = ?", (user_id, item_id))
     conn.commit()
     conn.close()
 
-def clear_today_food_logs(tanggal):
+def clear_today_food_logs(user_id, tanggal):
     conn = sqlite3.connect("nutrition_tracker.db")
     c = conn.cursor()
-    c.execute("DELETE FROM food_logs WHERE tanggal = ?", (tanggal,))
+    c.execute("DELETE FROM food_logs WHERE user_id = ? AND tanggal = ?", (user_id, tanggal))
     conn.commit()
     conn.close()
 
-def get_water_total(tanggal):
+def get_water_total(user_id, tanggal):
     conn = sqlite3.connect("nutrition_tracker.db")
     c = conn.cursor()
-    c.execute("SELECT SUM(jumlah_ml) FROM water_logs WHERE tanggal = ?", (tanggal,))
+    c.execute("SELECT SUM(jumlah_ml) FROM water_logs WHERE user_id = ? AND tanggal = ?", (user_id, tanggal))
     res = c.fetchone()[0]
     conn.close()
     return res if res else 0
 
-def add_water_to_db(tanggal, ml):
+def add_water_to_db(user_id, tanggal, ml):
     conn = sqlite3.connect("nutrition_tracker.db")
     c = conn.cursor()
-    c.execute("INSERT INTO water_logs (tanggal, jumlah_ml) VALUES (?, ?)", (tanggal, ml))
+    c.execute("INSERT INTO water_logs (user_id, tanggal, jumlah_ml) VALUES (?, ?, ?)", (user_id, tanggal, ml))
     conn.commit()
     conn.close()
 
-def reset_water_db(tanggal):
+def reset_water_db(user_id, tanggal):
     conn = sqlite3.connect("nutrition_tracker.db")
     c = conn.cursor()
-    c.execute("DELETE FROM water_logs WHERE tanggal = ?", (tanggal,))
+    c.execute("DELETE FROM water_logs WHERE user_id = ? AND tanggal = ?", (user_id, tanggal))
     conn.commit()
     conn.close()
 
-def log_weight(tanggal, berat):
+def log_weight(user_id, tanggal, berat):
     conn = sqlite3.connect("nutrition_tracker.db")
     c = conn.cursor()
-    c.execute("INSERT OR REPLACE INTO weight_logs (tanggal, berat) VALUES (?, ?)", (tanggal, berat))
+    c.execute("INSERT OR REPLACE INTO weight_logs (user_id, tanggal, berat) VALUES (?, ?, ?)", (user_id, tanggal, berat))
     conn.commit()
     conn.close()
 
-def get_weight_history():
+def get_weight_history(user_id):
     conn = sqlite3.connect("nutrition_tracker.db")
-    df = pd.read_sql_query("SELECT * FROM weight_logs ORDER BY tanggal ASC", conn)
+    df = pd.read_sql_query("SELECT * FROM weight_logs WHERE user_id = ? ORDER BY tanggal ASC", conn, params=(user_id,))
     conn.close()
     return df
 
-def get_streak_count():
+def get_streak_count(user_id):
     conn = sqlite3.connect("nutrition_tracker.db")
     c = conn.cursor()
-    c.execute("SELECT DISTINCT tanggal FROM food_logs ORDER BY tanggal DESC")
+    c.execute("SELECT DISTINCT tanggal FROM food_logs WHERE user_id = ? ORDER BY tanggal DESC", (user_id,))
     dates = [datetime.datetime.strptime(row[0], "%Y-%m-%d").date() for row in c.fetchall()]
     conn.close()
     
     if not dates:
         return 0
-    
     today = datetime.date.today()
     streak = 0
     check_date = today
-    
     if today not in dates:
         check_date = today - datetime.timedelta(days=1)
         if check_date not in dates:
             return 0
-
     while check_date in dates:
         streak += 1
         check_date -= datetime.timedelta(days=1)
-        
     return streak
 
-def get_weekly_history():
+def get_weekly_history(user_id):
     conn = sqlite3.connect("nutrition_tracker.db")
     df = pd.read_sql_query("""
         SELECT tanggal, SUM(kalori) as total_kalori, SUM(protein) as total_protein, 
                SUM(karbo) as total_karbo, SUM(lemak) as total_lemak 
         FROM food_logs 
+        WHERE user_id = ?
         GROUP BY tanggal 
         ORDER BY tanggal DESC LIMIT 7
-    """, conn)
+    """, conn, params=(user_id,))
     conn.close()
     return df
 
 
 # ==========================================
-# 3. SIDEBAR (CONFIG & TARGET HARIAN)
+# 3. SIDEBAR (PROFIL USER & KALKULATOR)
 # ==========================================
 
 st.sidebar.title("⚙️ Fitur & Pengaturan")
 
+# INPUT PROFILE / USER ID
+st.sidebar.subheader("👤 Pilih Profil Pengguna")
+raw_user = st.sidebar.text_input("Masukkan Nama/ID Kamu:", value="User1", help="Gunakan nama unikmu agar data tidak kecampur dengan orang lain")
+user_id = raw_user.strip().lower() if raw_user.strip() else "guest"
+
 # Streak Counter
-streak_days = get_streak_count()
-st.sidebar.markdown(f"### 🔥 Log Streak: **{streak_days} Hari**")
-if streak_days >= 7:
-    st.sidebar.caption("🏆 **Level: Consistency Master!**")
-elif streak_days >= 3:
-    st.sidebar.caption("⚡ **Level: On Fire! Jaga ritmenya.**")
-else:
-    st.sidebar.caption("🌱 **Level: Beginner. Mulaikan kebiasaan!**")
+streak_days = get_streak_count(user_id)
+st.sidebar.markdown(f"### 🔥 Streak **[{user_id.upper()}]**: **{streak_days} Hari**")
 
 st.sidebar.divider()
 selected_date = st.sidebar.date_input("🗓️ Pilih Tanggal Log", datetime.date.today()).strftime("%Y-%m-%d")
 
 # ------------------------------------------
-# KALKULATOR BMR & TDEE (WITH PERSISTENT STATE & PARAMS)
+# KALKULATOR BMR & TDEE
 # ------------------------------------------
 st.sidebar.divider()
 st.sidebar.subheader("⚖️ Kalkulator BMR & TDEE")
 
-# Inisialisasi awal Session State dari Query Params
 qp = st.query_params
 
 if "calc_jk" not in st.session_state:
     st.session_state.calc_jk = qp.get("jk", "Pria")
 if "calc_usia" not in st.session_state:
-    try:
-        st.session_state.calc_usia = int(qp.get("usia", 22))
-    except ValueError:
-        st.session_state.calc_usia = 22
+    try: st.session_state.calc_usia = int(qp.get("usia", 22))
+    except: st.session_state.calc_usia = 22
 if "calc_bb" not in st.session_state:
-    try:
-        st.session_state.calc_bb = float(qp.get("bb", 65.0))
-    except ValueError:
-        st.session_state.calc_bb = 65.0
+    try: st.session_state.calc_bb = float(qp.get("bb", 65.0))
+    except: st.session_state.calc_bb = 65.0
 if "calc_tb" not in st.session_state:
-    try:
-        st.session_state.calc_tb = float(qp.get("tb", 170.0))
-    except ValueError:
-        st.session_state.calc_tb = 170.0
+    try: st.session_state.calc_tb = float(qp.get("tb", 170.0))
+    except: st.session_state.calc_tb = 170.0
 if "calc_akt" not in st.session_state:
     st.session_state.calc_akt = qp.get("aktivitas", "Sedentary (Jarang olahraga)")
 if "calc_goal" not in st.session_state:
     st.session_state.calc_goal = qp.get("goal", "Maintenance (Jaga BB)")
 
-# Callback untuk sync session_state ke query_params
 def update_params():
     st.query_params["jk"] = st.session_state.calc_jk
     st.query_params["usia"] = str(st.session_state.calc_usia)
@@ -350,43 +295,33 @@ def update_params():
 with st.sidebar.expander("Hitung Kebutuhan Kalori", expanded=False):
     list_jk = ["Pria", "Wanita"]
     gender = st.radio("Jenis Kelamin", list_jk, key="calc_jk", horizontal=True, on_change=update_params)
-    
     usia = st.number_input("Usia (tahun)", min_value=10, max_value=100, key="calc_usia", on_change=update_params)
     bb = st.number_input("Berat Badan (kg)", min_value=30.0, max_value=200.0, step=0.5, key="calc_bb", on_change=update_params)
     tb = st.number_input("Tinggi Badan (cm)", min_value=100.0, max_value=230.0, step=0.5, key="calc_tb", on_change=update_params)
     
     list_aktivitas = [
-        "Sedentary (Jarang olahraga)",
-        "Ringan (Olahraga 1-3 hari/minggu)",
-        "Sedang (Olahraga 3-5 hari/minggu)",
-        "Berat (Olahraga 6-7 hari/minggu)",
+        "Sedentary (Jarang olahraga)", "Ringan (Olahraga 1-3 hari/minggu)",
+        "Sedang (Olahraga 3-5 hari/minggu)", "Berat (Olahraga 6-7 hari/minggu)",
         "Sangat Berat (Atlet / Pekerja Fisik)"
     ]
     aktivitas = st.selectbox("Tingkat Aktivitas", list_aktivitas, key="calc_akt", on_change=update_params)
     
     list_goal = [
-        "Maintenance (Jaga BB)",
-        "Defisit Kalori (-500 kcal / Turun BB)",
-        "Surplus Kalori (+300 kcal / Muscle Gain)"
+        "Maintenance (Jaga BB)", "Defisit Kalori (-500 kcal / Turun BB)", "Surplus Kalori (+300 kcal / Muscle Gain)"
     ]
     goal = st.selectbox("Target Kebugaran", list_goal, key="calc_goal", on_change=update_params)
 
-    # Hitung BMR & TDEE
     bmr = (10 * bb) + (6.25 * tb) - (5 * usia) + (5 if gender == "Pria" else -161)
     mult_dict = {
-        "Sedentary (Jarang olahraga)": 1.2,
-        "Ringan (Olahraga 1-3 hari/minggu)": 1.375,
-        "Sedang (Olahraga 3-5 hari/minggu)": 1.55,
-        "Berat (Olahraga 6-7 hari/minggu)": 1.725,
+        "Sedentary (Jarang olahraga)": 1.2, "Ringan (Olahraga 1-3 hari/minggu)": 1.375,
+        "Sedang (Olahraga 3-5 hari/minggu)": 1.55, "Berat (Olahraga 6-7 hari/minggu)": 1.725,
         "Sangat Berat (Atlet / Pekerja Fisik)": 1.9
     }
     tdee = bmr * mult_dict[aktivitas]
     
     target_calc = tdee
-    if "Defisit" in goal:
-        target_calc -= 500
-    elif "Surplus" in goal:
-        target_calc += 300
+    if "Defisit" in goal: target_calc -= 500
+    elif "Surplus" in goal: target_calc += 300
         
     st.info(f"**BMR:** {int(bmr)} kcal\n\n**TDEE:** {int(tdee)} kcal\n\n**Rekomendasi Target:** **{int(target_calc)} kcal**")
     
@@ -417,15 +352,11 @@ target_air = st.sidebar.number_input("Target Air Minum (ml)", value=2000, step=2
 # ==========================================
 
 st.title("🥗 Food & Nutrition Tracker Pro")
-st.caption(f"Log & Monitoring Nutrisi untuk Tanggal: **{selected_date}**")
+st.caption(f"Log & Monitoring Nutrisi | Profil: **{user_id.upper()}** | Tanggal: **{selected_date}**")
 
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-    "🍱 Input Makanan", 
-    "💧 Hydration Tracker", 
-    "📊 Dashboard Visual", 
-    "⚖️ Weight Progress",
-    "📈 Riwayat & Export",
-    "☁️ Cloud Sync"
+    "🍱 Input Makanan", "💧 Hydration Tracker", "📊 Dashboard Visual", 
+    "⚖️ Weight Progress", "📈 Riwayat & Export", "☁️ Cloud Sync"
 ])
 
 # ------------------------------------------
@@ -437,7 +368,6 @@ with tab1:
     with subtab1:
         st.subheader("Racik Piring Makan")
         waktu_makan = st.selectbox("Waktu Makan", ["Makan Pagi", "Makan Siang", "Makan Malam", "Camilan"], key="waktu_racik")
-        
         item_terpilih = st.multiselect("Pilih Makanan yang Dimakan", list(DATABASE_MAKANAN.keys()))
         
         porsi_dict = {}
@@ -455,11 +385,9 @@ with tab1:
                     detail = DATABASE_MAKANAN[item]
                     p = porsi_dict[item]
                     add_food_to_db(
-                        selected_date, waktu_makan, item, p,
-                        round(detail["kalori"] * p, 1),
-                        round(detail["protein"] * p, 1),
-                        round(detail["karbo"] * p, 1),
-                        round(detail["lemak"] * p, 1)
+                        user_id, selected_date, waktu_makan, item, p,
+                        round(detail["kalori"] * p, 1), round(detail["protein"] * p, 1),
+                        round(detail["karbo"] * p, 1), round(detail["lemak"] * p, 1)
                     )
                 st.success("Berhasil menambahkan makanan ke log!")
                 st.rerun()
@@ -469,29 +397,21 @@ with tab1:
         with st.form("form_custom_makanan"):
             waktu_custom = st.selectbox("Waktu Makan", ["Makan Pagi", "Makan Siang", "Makan Malam", "Camilan"], key="waktu_custom")
             nama_custom = st.text_input("Nama Makanan", placeholder="Contoh: Ayam Geprek")
-            
             c1, c2, c3, c4 = st.columns(4)
             kal_custom = c1.number_input("Kalori (kcal)", min_value=0.0, step=5.0, format="%g")
             prot_custom = c2.number_input("Protein (g)", min_value=0.0, step=1.0, format="%g")
             karbo_custom = c3.number_input("Karbo (g)", min_value=0.0, step=1.0, format="%g")
             lemak_custom = c4.number_input("Lemak (g)", min_value=0.0, step=1.0, format="%g")
             
-            submitted_custom = st.form_submit_button("Tambah Custom Makanan")
-            
-            if submitted_custom:
+            if st.form_submit_button("Tambah Custom Makanan"):
                 if nama_custom:
-                    add_food_to_db(
-                        selected_date, waktu_custom, f"[Custom] {nama_custom}", 1.0,
-                        kal_custom, prot_custom, karbo_custom, lemak_custom
-                    )
+                    add_food_to_db(user_id, selected_date, waktu_custom, f"[Custom] {nama_custom}", 1.0, kal_custom, prot_custom, karbo_custom, lemak_custom)
                     st.success(f"Berhasil menambahkan {nama_custom}!")
                     st.rerun()
-                else:
-                    st.warning("Isi nama makanan terlebih dahulu.")
 
     st.divider()
-    st.subheader(f"📋 Log Makanan ({selected_date})")
-    df_today = load_food_logs(selected_date)
+    st.subheader(f"📋 Log Makanan [{user_id.upper()}] ({selected_date})")
+    df_today = load_food_logs(user_id, selected_date)
     
     if not df_today.empty:
         def color_waktu(val):
@@ -514,14 +434,14 @@ with tab1:
         with col_del1:
             item_to_delete = st.selectbox("Pilih ID item untuk dihapus", df_today["id"].tolist())
             if st.button("Hapus Item Terpilih"):
-                delete_food_item_db(item_to_delete)
+                delete_food_item_db(user_id, item_to_delete)
                 st.success("Item dihapus!")
                 st.rerun()
         with col_del2:
             st.write("")
             st.write("")
             if st.button("Hapus Semua Log Hari Ini"):
-                clear_today_food_logs(selected_date)
+                clear_today_food_logs(user_id, selected_date)
                 st.rerun()
     else:
         st.info("Belum ada log makanan pada tanggal ini.")
@@ -531,8 +451,8 @@ with tab1:
 # TAB 2: HYDRATION TRACKER
 # ------------------------------------------
 with tab2:
-    st.subheader("💧 Hydration & Water Intake Tracker")
-    current_water = get_water_total(selected_date)
+    st.subheader(f"💧 Hydration Tracker - {user_id.upper()}")
+    current_water = get_water_total(user_id, selected_date)
     
     w_pct = min(1.0, current_water / target_air) if target_air > 0 else 0
     st.write(f"### Asupan Hari Ini: **{current_water} / {target_air} ml** ({int(w_pct * 100)}%)")
@@ -541,36 +461,32 @@ with tab2:
     st.write("#### Tambah Air Cepat:")
     w_col1, w_col2, w_col3, w_col4 = st.columns(4)
     if w_col1.button("🥤 +250 ml (Gelas)"):
-        add_water_to_db(selected_date, 250)
-        st.rerun()
+        add_water_to_db(user_id, selected_date, 250); st.rerun()
     if w_col2.button("🍾 +500 ml (Botol Kecil)"):
-        add_water_to_db(selected_date, 500)
-        st.rerun()
+        add_water_to_db(user_id, selected_date, 500); st.rerun()
     if w_col3.button("🍶 +600 ml (Botol Sedang)"):
-        add_water_to_db(selected_date, 600)
-        st.rerun()
+        add_water_to_db(user_id, selected_date, 600); st.rerun()
     if w_col4.button("🪣 +1500 ml (Botol Besar)"):
-        add_water_to_db(selected_date, 1500)
-        st.rerun()
+        add_water_to_db(user_id, selected_date, 1500); st.rerun()
         
     st.divider()
     w_custom_input = st.number_input("Jumlah Manual (ml):", min_value=50, step=50, value=200)
     if st.button("Tambah Air Manual"):
-        add_water_to_db(selected_date, w_custom_input)
+        add_water_to_db(user_id, selected_date, w_custom_input)
         st.success(f"Berhasil menambahkan {w_custom_input} ml air!")
         st.rerun()
         
     if st.button("Reset Air Hari Ini"):
-        reset_water_db(selected_date)
+        reset_water_db(user_id, selected_date)
         st.rerun()
 
 
 # ------------------------------------------
-# TAB 3: DASHBOARD VISUAL & AI RECOMMENDATION
+# TAB 3: DASHBOARD VISUAL
 # ------------------------------------------
 with tab3:
-    st.subheader("🎯 Capaian Target Harian")
-    df_today = load_food_logs(selected_date)
+    st.subheader(f"🎯 Capaian Target Harian - {user_id.upper()}")
+    df_today = load_food_logs(user_id, selected_date)
     
     tot_kal = df_today["Kalori (kcal)"].sum() if not df_today.empty else 0
     tot_prot = df_today["Protein (g)"].sum() if not df_today.empty else 0
@@ -585,86 +501,20 @@ with tab3:
     lemak_pct = (tot_lemak / target_lemak * 100) if target_lemak else 0
 
     with c1:
-        st.markdown(f"""
-        <div class="macro-card card-kalori">
-            <div class="macro-title">🔥 Kalori Harian</div>
-            <div class="macro-value">{tot_kal:.0f} <span style="font-size:0.9rem; font-weight:500;">/ {target_kalori} kcal</span></div>
-            <div class="macro-sub" style="color: {'#FF5252' if tot_kal > target_kalori else '#4CAF50'};">
-                {tot_kal - target_kalori:+.0f} kcal ({kal_pct:.0f}%)
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
+        st.markdown(f"""<div class="macro-card card-kalori"><div class="macro-title">🔥 Kalori Harian</div><div class="macro-value">{tot_kal:.0f} <span style="font-size:0.9rem;">/ {target_kalori} kcal</span></div><div class="macro-sub">{tot_kal - target_kalori:+.0f} kcal ({kal_pct:.0f}%)</div></div>""", unsafe_allow_html=True)
     with c2:
-        st.markdown(f"""
-        <div class="macro-card card-protein">
-            <div class="macro-title">🥩 Protein</div>
-            <div class="macro-value">{tot_prot:.1f} <span style="font-size:0.9rem; font-weight:500;">/ {target_protein} g</span></div>
-            <div class="macro-sub" style="color: {'#4CAF50' if tot_prot >= target_protein else '#FFB74D'};">
-                {tot_prot - target_protein:+.1f} g ({prot_pct:.0f}%)
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
+        st.markdown(f"""<div class="macro-card card-protein"><div class="macro-title">🥩 Protein</div><div class="macro-value">{tot_prot:.1f} <span style="font-size:0.9rem;">/ {target_protein} g</span></div><div class="macro-sub">{tot_prot - target_protein:+.1f} g ({prot_pct:.0f}%)</div></div>""", unsafe_allow_html=True)
     with c3:
-        st.markdown(f"""
-        <div class="macro-card card-karbo">
-            <div class="macro-title">🌾 Karbohidrat</div>
-            <div class="macro-value">{tot_karbo:.1f} <span style="font-size:0.9rem; font-weight:500;">/ {target_karbo} g</span></div>
-            <div class="macro-sub" style="color: #FFB74D;">
-                {tot_karbo - target_karbo:+.1f} g ({karbo_pct:.0f}%)
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
+        st.markdown(f"""<div class="macro-card card-karbo"><div class="macro-title">🌾 Karbohidrat</div><div class="macro-value">{tot_karbo:.1f} <span style="font-size:0.9rem;">/ {target_karbo} g</span></div><div class="macro-sub">{tot_karbo - target_karbo:+.1f} g ({karbo_pct:.0f}%)</div></div>""", unsafe_allow_html=True)
     with c4:
-        st.markdown(f"""
-        <div class="macro-card card-lemak">
-            <div class="macro-title">🥑 Lemak</div>
-            <div class="macro-value">{tot_lemak:.1f} <span style="font-size:0.9rem; font-weight:500;">/ {target_lemak} g</span></div>
-            <div class="macro-sub" style="color: #29B6F6;">
-                {tot_lemak - target_lemak:+.1f} g ({lemak_pct:.0f}%)
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f"""<div class="macro-card card-lemak"><div class="macro-title">🥑 Lemak</div><div class="macro-value">{tot_lemak:.1f} <span style="font-size:0.9rem;">/ {target_lemak} g</span></div><div class="macro-sub">{tot_lemak - target_lemak:+.1f} g ({lemak_pct:.0f}%)</div></div>""", unsafe_allow_html=True)
 
-    st.write("")
-    
     col_ring, col_chart2 = st.columns([1, 1])
-    
     with col_ring:
         fig_ring = go.Figure()
-        
-        fig_ring.add_trace(go.Pie(
-            values=[min(tot_kal, target_kalori), max(0, target_kalori - tot_kal)],
-            hole=0.75,
-            marker_colors=['#FF5252', 'rgba(255, 82, 82, 0.15)'],
-            textinfo='none',
-            hoverinfo='none',
-            sort=False
-        ))
-        
-        fig_ring.add_trace(go.Pie(
-            values=[min(tot_prot, target_protein), max(0, target_protein - tot_prot)],
-            hole=0.55,
-            domain={'x': [0.12, 0.88], 'y': [0.12, 0.88]},
-            marker_colors=['#4CAF50', 'rgba(76, 175, 80, 0.15)'],
-            textinfo='none',
-            hoverinfo='none',
-            sort=False
-        ))
-        
-        fig_ring.update_layout(
-            title="⭕ Activity Rings (Kalori & Protein)",
-            showlegend=False,
-            margin=dict(t=40, b=10, l=10, r=10),
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            annotations=[{
-                'text': f'<b>{int(kal_pct)}%</b><br><span style="font-size:12px; color:#8E9BAE">Kalori</span>',
-                'x': 0.5, 'y': 0.5, 'font_size': 20, 'showarrow': False, 'font_color': '#FFFFFF'
-            }]
-        )
+        fig_ring.add_trace(go.Pie(values=[min(tot_kal, target_kalori), max(0, target_kalori - tot_kal)], hole=0.75, marker_colors=['#FF5252', 'rgba(255, 82, 82, 0.15)'], textinfo='none', hoverinfo='none', sort=False))
+        fig_ring.add_trace(go.Pie(values=[min(tot_prot, target_protein), max(0, target_protein - tot_prot)], hole=0.55, domain={'x': [0.12, 0.88], 'y': [0.12, 0.88]}, marker_colors=['#4CAF50', 'rgba(76, 175, 80, 0.15)'], textinfo='none', hoverinfo='none', sort=False))
+        fig_ring.update_layout(title="⭕ Activity Rings", showlegend=False, margin=dict(t=40, b=10, l=10, r=10), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', annotations=[{'text': f'<b>{int(kal_pct)}%</b>', 'x': 0.5, 'y': 0.5, 'font_size': 20, 'showarrow': False, 'font_color': '#FFFFFF'}])
         st.plotly_chart(fig_ring, use_container_width=True)
 
     with col_chart2:
@@ -673,57 +523,26 @@ with tab3:
             fig_bar = px.bar(breakdown_time, x="Waktu", y="Kalori (kcal)", title="📊 Kalori per Waktu Makan", text_auto=True)
             fig_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="#FFFFFF")
             st.plotly_chart(fig_bar, use_container_width=True)
-        else:
-            st.info("Belum ada data visualisasi log makanan hari ini.")
-
-    # Smart Meal Advisor
-    st.divider()
-    st.subheader("💡 Smart Meal Advisor")
-    sisa_kalori = target_kalori - tot_kal
-    sisa_protein = target_protein - tot_prot
-    
-    if sisa_kalori > 100:
-        st.write(f"Sisa kuota kamu hari ini: **{sisa_kalori:.0f} kcal** & **{sisa_protein:.0f}g Protein**. Berikut opsi makanan yang cocok:")
-        rekomendasi = []
-        for food, val in DATABASE_MAKANAN.items():
-            if val["kalori"] <= sisa_kalori:
-                rekomendasi.append({
-                    "Makanan": food,
-                    "Kalori (kcal)": val["kalori"],
-                    "Protein (g)": val["protein"]
-                })
-        if rekomendasi:
-            df_rec = pd.DataFrame(rekomendasi).sort_values(by="Protein (g)", ascending=False).head(3)
-            st.table(df_rec)
-        else:
-            st.info("Camilan ringan seperti buah atau telur rebus cocok untuk sisa kuota kecil ini.")
-    else:
-        st.success("🎉 Target kalori harian kamu sudah tercapai atau hampir penuh!")
 
 
 # ------------------------------------------
-# TAB 4: WEIGHT PROGRESS TRACKER
+# TAB 4: WEIGHT PROGRESS
 # ------------------------------------------
 with tab4:
-    st.subheader("⚖️ Tracking Berat Badan")
-    
+    st.subheader(f"⚖️ Tracking Berat Badan - {user_id.upper()}")
     col_w1, col_w2 = st.columns([1, 2])
     with col_w1:
-        st.write("#### Log Berat Hari Ini")
         input_bb = st.number_input("Berat Badan (kg)", min_value=30.0, max_value=200.0, value=65.0, step=0.1)
         if st.button("Simpan Berat Badan"):
-            log_weight(selected_date, input_bb)
-            st.success(f"Berat {input_bb} kg tersimpan untuk {selected_date}!")
+            log_weight(user_id, selected_date, input_bb)
+            st.success(f"Berat {input_bb} kg tersimpan!")
             st.rerun()
-            
     with col_w2:
-        df_w = get_weight_history()
+        df_w = get_weight_history(user_id)
         if not df_w.empty:
-            fig_w = px.line(df_w, x="tanggal", y="berat", title="Grafik Perubahan Berat Badan (kg)", markers=True)
+            fig_w = px.line(df_w, x="tanggal", y="berat", title="Grafik Berat Badan", markers=True)
             fig_w.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="#FFFFFF")
             st.plotly_chart(fig_w, use_container_width=True)
-        else:
-            st.info("Belum ada riwayat berat badan yang dicatat.")
 
 
 # ------------------------------------------
@@ -731,23 +550,13 @@ with tab4:
 # ------------------------------------------
 with tab5:
     st.subheader("📈 Riwayat Log 7 Hari Terakhir")
-    df_history = get_weekly_history()
+    df_history = get_weekly_history(user_id)
     if not df_history.empty:
         fig_line = px.line(df_history, x="tanggal", y="total_kalori", title="Tren Asupan Kalori Harian", markers=True)
-        fig_line.add_hline(y=target_kalori, line_dash="dash", line_color="red", annotation_text="Target Kalori")
+        fig_line.add_hline(y=target_kalori, line_dash="dash", line_color="red")
         fig_line.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="#FFFFFF")
         st.plotly_chart(fig_line, use_container_width=True)
         st.dataframe(df_history, use_container_width=True)
-        
-    st.divider()
-    st.subheader("📥 Export Data Log Makanan")
-    conn = sqlite3.connect("nutrition_tracker.db")
-    df_all = pd.read_sql_query("SELECT * FROM food_logs", conn)
-    conn.close()
-    
-    if not df_all.empty:
-        csv_data = df_all.to_csv(index=False).encode('utf-8')
-        st.download_button("📄 Download CSV", csv_data, f"log_{datetime.date.today()}.csv", "text/csv")
 
 
 # ------------------------------------------
@@ -755,22 +564,15 @@ with tab5:
 # ------------------------------------------
 with tab6:
     st.subheader("☁️ Sinkronisasi Data ke Google Sheets")
-    st.write("Fitur ini memungkinkan data tersimpan secara permanen di Google Drive/Cloud saat aplikasi di-deploy.")
-    
-    gsheet_url = st.text_input("Masukkan Link Public Google Sheets kamu:", placeholder="https://docs.google.com/spreadsheets/d/your-sheet-id/edit")
-    
-    if st.button("Sync / Upload Database Sekarang"):
+    gsheet_url = st.text_input("Masukkan Link Public Google Sheets kamu:")
+    if st.button("Sync Database Sekarang"):
         if gsheet_url:
             try:
                 conn_gs = st.connection("gsheets", type=GSheetsConnection)
                 conn_local = sqlite3.connect("nutrition_tracker.db")
-                df_to_sync = pd.read_sql_query("SELECT * FROM food_logs", conn_local)
+                df_to_sync = pd.read_sql_query("SELECT * FROM food_logs WHERE user_id = ?", conn_local, params=(user_id,))
                 conn_local.close()
-                
                 conn_gs.update(spreadsheet=gsheet_url, data=df_to_sync)
-                st.success("✅ Berhasil melakukan Backup & Sync data ke Google Sheets!")
+                st.success("✅ Berhasil Backup data ke Google Sheets!")
             except Exception as e:
-                st.error(f"Gagal melakukan sync: {e}")
-                st.info("Pastikan link Google Sheets sudah benar dan akses file di-set ke 'Anyone with the link can edit'.")
-        else:
-            st.warning("Silakan masukkan URL Google Sheets terlebih dahulu.")
+                st.error(f"Gagal sync: {e}")
