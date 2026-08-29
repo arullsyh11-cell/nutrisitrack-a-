@@ -815,32 +815,48 @@ elif st.session_state["current_page"] == "Pengaturan":
     st.title("⚙️ Pengaturan Profil & Kalkulator Nutrisi")
     st.caption("Sesuaikan target nutrisi harian kamu berdasarkan kalkulator BMR/TDEE.")
 
+    # Inisialisasi Session State kalkulator jika belum ada
+    st.session_state.setdefault("calc_gender", "Pria")
+    st.session_state.setdefault("calc_usia", 22)
+    st.session_state.setdefault("calc_bb", 65.0)
+    st.session_state.setdefault("calc_tb", 170.0)
+    st.session_state.setdefault("calc_aktivitas", "Ringan (Olahraga 1-3 hari/minggu)")
+    st.session_state.setdefault("calc_goal", "Defisit Kalori (-500 kcal / Turun BB)")
+
     col_set1, col_set2 = st.columns(2)
 
     with col_set1:
         st.subheader("⚖️ Kalkulator BMR & TDEE")
-        list_jk = ["Pria", "Wanita"]
-        gender = st.radio("Jenis Kelamin", list_jk, horizontal=True)
-        usia = st.number_input("Usia (tahun)", min_value=10, max_value=100, value=22)
-        bb = st.number_input("Berat Badan (kg)", min_value=30.0, max_value=200.0, value=65.0, step=0.5)
-        tb = st.number_input("Tinggi Badan (cm)", min_value=100.0, max_value=230.0, value=170.0, step=0.5)
         
+        list_jk = ["Pria", "Wanita"]
         list_aktivitas = [
-            "Sedentary (Jarang olahraga)", "Ringan (Olahraga 1-3 hari/minggu)",
-            "Sedang (Olahraga 3-5 hari/minggu)", "Berat (Olahraga 6-7 hari/minggu)",
+            "Sedentary (Jarang olahraga)", 
+            "Ringan (Olahraga 1-3 hari/minggu)",
+            "Sedang (Olahraga 3-5 hari/minggu)", 
+            "Berat (Olahraga 6-7 hari/minggu)",
             "Sangat Berat (Atlet / Pekerja Fisik)"
         ]
-        aktivitas = st.selectbox("Tingkat Aktivitas", list_aktivitas)
-        
         list_goal = [
-            "Maintenance (Jaga BB)", "Defisit Kalori (-500 kcal / Turun BB)", "Surplus Kalori (+300 kcal / Muscle Gain)"
+            "Maintenance (Jaga BB)", 
+            "Defisit Kalori (-500 kcal / Turun BB)", 
+            "Surplus Kalori (+300 kcal / Muscle Gain)"
         ]
-        goal = st.selectbox("Target Kebugaran", list_goal)
 
+        # Form Input Kalkulator (Semua di-bind ke key)
+        gender = st.radio("Jenis Kelamin", list_jk, horizontal=True, key="calc_gender")
+        usia = st.number_input("Usia (tahun)", min_value=10, max_value=100, key="calc_usia")
+        bb = st.number_input("Berat Badan (kg)", min_value=30.0, max_value=200.0, step=0.5, key="calc_bb")
+        tb = st.number_input("Tinggi Badan (cm)", min_value=100.0, max_value=230.0, step=0.5, key="calc_tb")
+        aktivitas = st.selectbox("Tingkat Aktivitas", list_aktivitas, key="calc_aktivitas")
+        goal = st.selectbox("Target Kebugaran", list_goal, key="calc_goal")
+
+        # Kalkulasi BMR & TDEE
         bmr = (10 * bb) + (6.25 * tb) - (5 * usia) + (5 if gender == "Pria" else -161)
         mult_dict = {
-            "Sedentary (Jarang olahraga)": 1.2, "Ringan (Olahraga 1-3 hari/minggu)": 1.375,
-            "Sedang (Olahraga 3-5 hari/minggu)": 1.55, "Berat (Olahraga 6-7 hari/minggu)": 1.725,
+            "Sedentary (Jarang olahraga)": 1.2, 
+            "Ringan (Olahraga 1-3 hari/minggu)": 1.375,
+            "Sedang (Olahraga 3-5 hari/minggu)": 1.55, 
+            "Berat (Olahraga 6-7 hari/minggu)": 1.725,
             "Sangat Berat (Atlet / Pekerja Fisik)": 1.9
         }
         tdee = bmr * mult_dict[aktivitas]
@@ -860,14 +876,12 @@ elif st.session_state["current_page"] == "Pengaturan":
 
     with col_set2:
         st.subheader("🎯 Custom Target Harian Manual")
-        new_kal = st.number_input("Target Kalori (kcal)", value=st.session_state.target_kalori_val, step=50)
-        new_prot = st.number_input("Target Protein (g)", value=st.session_state.target_protein_val, step=5)
-        new_karb = st.number_input("Target Karbo (g)", value=st.session_state.target_karbo_val, step=10)
-        new_lem = st.number_input("Target Lemak (g)", value=st.session_state.target_lemak_val, step=5)
+        
+        # Form Input Custom Target (Di-bind ke key)
+        new_kal = st.number_input("Target Kalori (kcal)", step=50, key="target_kalori_val")
+        new_prot = st.number_input("Target Protein (g)", step=5, key="target_protein_val")
+        new_karb = st.number_input("Target Karbo (g)", step=10, key="target_karbo_val")
+        new_lem = st.number_input("Target Lemak (g)", step=5, key="target_lemak_val")
         
         if st.button("Simpan Target Harian", use_container_width=True):
-            st.session_state.target_kalori_val = new_kal
-            st.session_state.target_protein_val = new_prot
-            st.session_state.target_karbo_val = new_karb
-            st.session_state.target_lemak_val = new_lem
             st.success("Target harian manual berhasil disimpan!")
