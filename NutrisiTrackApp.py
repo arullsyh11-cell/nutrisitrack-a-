@@ -188,6 +188,7 @@ DATABASE_MAKANAN = {
     "Salmon Mentai Roll (8 pcs)": {"kalori": 450, "protein": 15.0, "karbo": 48.0, "lemak": 18.0},
     "Salmon Sashimi (5 pcs/Tanpa Nasi)": {"kalori": 170, "protein": 23.0, "karbo": 0.0, "lemak": 8.0},
 }
+
 # ==========================================
 # 2. HELPER FUNCTIONS
 # ==========================================
@@ -313,11 +314,9 @@ class PDFWithWatermark(FPDF):
                 self.image(logo_path, x=55, y=90, w=100)
                 self.set_alpha(1.0)
             except Exception as e:
-                # Print error di terminal kalau ada masalah baca gambar
                 print(f"Error watermark: {e}")
 
 def generate_pdf_report(user_id, tanggal, df_food, water_ml, target_kal, target_prot, target_karb, target_lem):
-    # Pakai class PDFWithWatermark yang baru
     pdf = PDFWithWatermark()
     pdf.add_page()
     
@@ -371,26 +370,19 @@ def generate_pdf_report(user_id, tanggal, df_food, water_ml, target_kal, target_
 # 3. SIDEBAR (NAVIGASI BUTTON & PROFIL)
 # ==========================================
 
-# Inisialisasi State Halaman Utama
 if "current_page" not in st.session_state:
     st.session_state["current_page"] = "Dashboard Utama"
 
 st.sidebar.title("📌 Menu Navigasi")
 
-# Button Navigasi Halaman
 if st.sidebar.button("📊 Dashboard Tracker", use_container_width=True):
     st.session_state["current_page"] = "Dashboard Utama"
 
 if st.sidebar.button("⚙️ Pengaturan & Kalkulator", use_container_width=True):
     st.session_state["current_page"] = "Pengaturan"
 
-# Kamu bisa dengan mudah nambah halaman baru di sini nanti:
-# if st.sidebar.button("🏆 Leaderboard / Clan", use_container_width=True):
-#     st.session_state["current_page"] = "Leaderboard"
-
 st.sidebar.divider()
 
-# Profil User Input (Session State Managed)
 query_params = st.query_params
 default_user = query_params.get("user", "User1")
 
@@ -455,118 +447,117 @@ if st.session_state["current_page"] == "Dashboard Utama":
     ])
 
     # --- TAB 1: INPUT MAKANAN ---
-with tab1:
-    subtab1, subtab2 = st.tabs(["🍱 Racik Menu (Database)", "✏️ Input Custom Manual"])
-    
-    with subtab1:
-        st.subheader("Racik Piring Makan")
-        waktu_makan = st.selectbox("Waktu Makan", ["Makan Pagi", "Makan Siang", "Makan Malam", "Camilan"], key="waktu_racik")
+    with tab1:
+        subtab1, subtab2 = st.tabs(["🍱 Racik Menu (Database)", "✏️ Input Custom Manual"])
         
-        # --- FITUR FILTER NUTRISI MAKANAN ---
-        filter_nutrisi = st.radio(
-            "🎯 Filter Kategori Nutrisi:",
-            ["Semua", "💪 Tinggi Protein", "🔥 Tinggi Kalori", "🍞 Tinggi Karbo", "🥑 Tinggi Lemak"],
-            horizontal=True,
-            key="filter_nutrisi_racik"
-        )
-        
-        # Logika penyaringan opsi makanan dari DATABASE_MAKANAN
-        makanan_terfilter = []
-        for nama, nutrisi in DATABASE_MAKANAN.items():
-            if filter_nutrisi == "Semua":
-                makanan_terfilter.append(nama)
-            elif filter_nutrisi == "💪 Tinggi Protein" and nutrisi.get("protein", 0) >= 15:
-                makanan_terfilter.append(nama)
-            elif filter_nutrisi == "🔥 Tinggi Kalori" and nutrisi.get("kalori", 0) >= 300:
-                makanan_terfilter.append(nama)
-            elif filter_nutrisi == "🍞 Tinggi Karbo" and nutrisi.get("karbo", 0) >= 30:
-                makanan_terfilter.append(nama)
-            elif filter_nutrisi == "🥑 Tinggi Lemak" and nutrisi.get("lemak", 0) >= 10:
-                makanan_terfilter.append(nama)
-        
-        # Multiselect dinamis berdasarkan hasil filter
-        item_terpilih = st.multiselect("Pilih Makanan yang Dimakan", options=makanan_terfilter, placeholder="Choose options")
-        
-        porsi_dict = {}
-        if item_terpilih:
-            st.write("**Atur Jumlah Porsi:**")
-            cols = st.columns(min(len(item_terpilih), 3))
-            for idx, item in enumerate(item_terpilih):
-                with cols[idx % 3]:
-                    porsi_dict[item] = st.number_input(f"Porsi {item}", min_value=0.1, value=1.0, step=0.1, key=f"porsi_{item}")
+        with subtab1:
+            st.subheader("Racik Piring Makan")
+            waktu_makan = st.selectbox("Waktu Makan", ["Makan Pagi", "Makan Siang", "Makan Malam", "Camilan"], key="waktu_racik")
             
-            if st.button("Tambah Semua ke Log"):
-                for item in item_terpilih:
-                    detail = DATABASE_MAKANAN[item]
-                    p = porsi_dict[item]
-                    add_food_to_db(
-                        user_id, selected_date, waktu_makan, item, p,
-                        round(detail["kalori"] * p, 1),
-                        round(detail["protein"] * p, 1),
-                        round(detail["karbo"] * p, 1),
-                        round(detail["lemak"] * p, 1)
-                    )
-                st.success("Berhasil menambahkan makanan ke log!")
-                st.rerun()
-
-    with subtab2:
-        st.subheader("Tambah Makanan Manual")
-        with st.form("form_custom_makanan"):
-            waktu_custom = st.selectbox("Waktu Makan", ["Makan Pagi", "Makan Siang", "Makan Malam", "Camilan"], key="waktu_custom")
-            nama_custom = st.text_input("Nama Makanan", placeholder="Contoh: Ayam Geprek Sambal Korek")
-            col_c1, col_c2, col_c3, col_c4 = st.columns(4)
-            kal_custom = col_c1.number_input("Kalori (kcal)", min_value=0.0, step=5.0)
-            prot_custom = col_c2.number_input("Protein (g)", min_value=0.0, step=1.0)
-            karbo_custom = col_c3.number_input("Karbo (g)", min_value=0.0, step=1.0)
-            lemak_custom = col_c4.number_input("Lemak (g)", min_value=0.0, step=1.0)
+            # --- FITUR FILTER NUTRISI MAKANAN ---
+            filter_nutrisi = st.radio(
+                "🎯 Filter Kategori Nutrisi:",
+                ["Semua", "💪 Tinggi Protein", "🔥 Tinggi Kalori", "🍞 Tinggi Karbo", "🥑 Tinggi Lemak"],
+                horizontal=True,
+                key="filter_nutrisi_racik"
+            )
             
-            submit_custom = st.form_submit_button("Tambah Custom Makanan")
-            if submit_custom:
-                if nama_custom:
-                    add_food_to_db(user_id, selected_date, waktu_custom, f"[Custom] {nama_custom}", 1.0, kal_custom, prot_custom, karbo_custom, lemak_custom)
-                    st.success(f"Berhasil menambahkan {nama_custom}!")
+            # Logika penyaringan opsi makanan dari DATABASE_MAKANAN
+            makanan_terfilter = []
+            for nama, nutrisi in DATABASE_MAKANAN.items():
+                if filter_nutrisi == "Semua":
+                    makanan_terfilter.append(nama)
+                elif filter_nutrisi == "💪 Tinggi Protein" and nutrisi.get("protein", 0) >= 15:
+                    makanan_terfilter.append(nama)
+                elif filter_nutrisi == "🔥 Tinggi Kalori" and nutrisi.get("kalori", 0) >= 300:
+                    makanan_terfilter.append(nama)
+                elif filter_nutrisi == "🍞 Tinggi Karbo" and nutrisi.get("karbo", 0) >= 30:
+                    makanan_terfilter.append(nama)
+                elif filter_nutrisi == "🥑 Tinggi Lemak" and nutrisi.get("lemak", 0) >= 10:
+                    makanan_terfilter.append(nama)
+            
+            # Multiselect dinamis berdasarkan hasil filter
+            item_terpilih = st.multiselect("Pilih Makanan yang Dimakan", options=makanan_terfilter, placeholder="Choose options")
+            
+            porsi_dict = {}
+            if item_terpilih:
+                st.write("**Atur Jumlah Porsi:**")
+                cols = st.columns(min(len(item_terpilih), 3))
+                for idx, item in enumerate(item_terpilih):
+                    with cols[idx % 3]:
+                        porsi_dict[item] = st.number_input(f"Porsi {item}", min_value=0.1, value=1.0, step=0.1, key=f"porsi_{item}")
+                
+                if st.button("Tambah Semua ke Log"):
+                    for item in item_terpilih:
+                        detail = DATABASE_MAKANAN[item]
+                        p = porsi_dict[item]
+                        add_food_to_db(
+                            user_id, selected_date, waktu_makan, item, p,
+                            round(detail["kalori"] * p, 1),
+                            round(detail["protein"] * p, 1),
+                            round(detail["karbo"] * p, 1),
+                            round(detail["lemak"] * p, 1)
+                        )
+                    st.success("Berhasil menambahkan makanan ke log!")
                     st.rerun()
-                else:
-                    st.error("Nama makanan tidak boleh kosong!")
 
-    st.divider()
-    st.subheader(f"📋 Log Makanan [{user_id.upper()}] - ({selected_date})")
-    
-    df_today = load_food_logs(user_id, selected_date)
-    
-    if not df_today.empty:
-        def color_waktu(val):
-            colors = {
-                "Makan Pagi": "background-color: rgba(255, 235, 59, 0.2); color: #FFF59D; font-weight: 600;",
-                "Makan Siang": "background-color: rgba(255, 152, 0, 0.2); color: #FFCC80; font-weight: 600;",
-                "Makan Malam": "background-color: rgba(156, 39, 176, 0.2); color: #E1BEE7; font-weight: 600;",
-                "Camilan": "background-color: rgba(76, 175, 80, 0.2); color: #A5D6A7; font-weight: 600;"
-            }
-            return colors.get(val, '')
+        with subtab2:
+            st.subheader("Tambah Makanan Manual")
+            with st.form("form_custom_makanan"):
+                waktu_custom = st.selectbox("Waktu Makan", ["Makan Pagi", "Makan Siang", "Makan Malam", "Camilan"], key="waktu_custom")
+                nama_custom = st.text_input("Nama Makanan", placeholder="Contoh: Ayam Geprek Sambal Korek")
+                col_c1, col_c2, col_c3, col_c4 = st.columns(4)
+                kal_custom = col_c1.number_input("Kalori (kcal)", min_value=0.0, step=5.0)
+                prot_custom = col_c2.number_input("Protein (g)", min_value=0.0, step=1.0)
+                karbo_custom = col_c3.number_input("Karbo (g)", min_value=0.0, step=1.0)
+                lemak_custom = col_c4.number_input("Lemak (g)", min_value=0.0, step=1.0)
+                
+                submit_custom = st.form_submit_button("Tambah Custom Makanan")
+                if submit_custom:
+                    if nama_custom:
+                        add_food_to_db(user_id, selected_date, waktu_custom, f"[Custom] {nama_custom}", 1.0, kal_custom, prot_custom, karbo_custom, lemak_custom)
+                        st.success(f"Berhasil menambahkan {nama_custom}!")
+                        st.rerun()
+                    else:
+                        st.error("Nama makanan tidak boleh kosong!")
 
-        df_styled = (
-            df_today.drop(columns=["id"])
-            .style.map(color_waktu, subset=["Waktu"])
-            .format(precision=1)
-        )
-        st.dataframe(df_styled, use_container_width=True)
+        st.divider()
+        st.subheader(f"📋 Log Makanan [{user_id.upper()}] - ({selected_date})")
         
-        col_del1, col_del2 = st.columns([2, 1])
-        with col_del1:
-            item_to_delete = st.selectbox("Pilih ID item untuk dihapus", df_today["id"].tolist())
-            if st.button("Hapus Item Terpilih"):
-                delete_food_item_db(user_id, item_to_delete)
-                st.success("Item berhasil dihapus!")
-                st.rerun()
-        with col_del2:
-            st.write(""); st.write("")
-            if st.button("Hapus Semua Log Hari Ini"):
-                clear_today_food_logs(user_id, selected_date)
-                st.success("Seluruh log hari ini berhasil dihapus!")
-                st.rerun()
-    else:
-        st.info("Belum ada makanan yang dicatat pada tanggal ini. (Reset otomatis tiap 24 jam)")
-                    
+        df_today = load_food_logs(user_id, selected_date)
+        
+        if not df_today.empty:
+            def color_waktu(val):
+                colors = {
+                    "Makan Pagi": "background-color: rgba(255, 235, 59, 0.2); color: #FFF59D; font-weight: 600;",
+                    "Makan Siang": "background-color: rgba(255, 152, 0, 0.2); color: #FFCC80; font-weight: 600;",
+                    "Makan Malam": "background-color: rgba(156, 39, 176, 0.2); color: #E1BEE7; font-weight: 600;",
+                    "Camilan": "background-color: rgba(76, 175, 80, 0.2); color: #A5D6A7; font-weight: 600;"
+                }
+                return colors.get(val, '')
+
+            df_styled = (
+                df_today.drop(columns=["id"])
+                .style.map(color_waktu, subset=["Waktu"])
+                .format(precision=1)
+            )
+            st.dataframe(df_styled, use_container_width=True)
+            
+            col_del1, col_del2 = st.columns([2, 1])
+            with col_del1:
+                item_to_delete = st.selectbox("Pilih ID item untuk dihapus", df_today["id"].tolist())
+                if st.button("Hapus Item Terpilih"):
+                    delete_food_item_db(user_id, item_to_delete)
+                    st.success("Item berhasil dihapus!")
+                    st.rerun()
+            with col_del2:
+                st.write(""); st.write("")
+                if st.button("Hapus Semua Log Hari Ini"):
+                    clear_today_food_logs(user_id, selected_date)
+                    st.success("Seluruh log hari ini berhasil dihapus!")
+                    st.rerun()
+        else:
+            st.info("Belum ada makanan yang dicatat pada tanggal ini. (Reset otomatis tiap 24 jam)")
 
     # --- TAB 2: HYDRATION TRACKER ---
     with tab2:
@@ -820,8 +811,8 @@ with tab1:
 # ------------------------------------------
 # HALAMAN 2: PENGATURAN & KALKULATOR BMR/TDEE
 # ------------------------------------------
-            elif st.session_state["current_page"] == "Pengaturan":
-                st.title("⚙️ Pengaturan Profil & Kalkulator Nutrisi")
+elif st.session_state["current_page"] == "Pengaturan":
+    st.title("⚙️ Pengaturan Profil & Kalkulator Nutrisi")
     st.caption("Sesuaikan target nutrisi harian kamu berdasarkan kalkulator BMR/TDEE.")
 
     col_set1, col_set2 = st.columns(2)
