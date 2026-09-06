@@ -8,10 +8,6 @@ import os
 from fpdf import FPDF
 import time
 
-
-# ==========================================
-# 1. KONFIGURASI HALAMAN & DATABASE
-# ==========================================
 st.set_page_config(
     page_title="NutriTrack Pro - Health & Nutrition Dashboard", 
     page_icon="🥗", 
@@ -19,7 +15,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS Theme (Modern Dark Glassmorphism)
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
@@ -100,8 +95,18 @@ def init_db():
             UNIQUE(user_id, tanggal)
         )
     ''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS workout_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT DEFAULT 'guest',
+            tanggal TEXT,
+            jenis_latihan TEXT,
+            durasi_menit INTEGER,
+            kalori_terbakar REAL
+        )
+    ''')
     
-    for table in ["food_logs", "water_logs", "weight_logs"]:
+    for table in ["food_logs", "water_logs", "weight_logs", "workout_logs"]:
         try:
             c.execute(f"ALTER TABLE {table} ADD COLUMN user_id TEXT DEFAULT 'guest'")
         except sqlite3.OperationalError:
@@ -116,71 +121,55 @@ DATABASE_MAKANAN = {
     "Nasi Putih (1 piring/150g)": {"kalori": 204, "protein": 4.2, "karbo": 44.0, "lemak": 0.4},
     "Oatmeal (40g dry)": {"kalori": 150, "protein": 5.0, "karbo": 27.0, "lemak": 2.5},
     "Nasi Goreng (1 piring)": {"kalori": 510, "protein": 12.5, "karbo": 65.0, "lemak": 21.0},
+    "Roti Tawar Gandum (2 lembar)": {"kalori": 130, "protein": 5.0, "karbo": 24.0, "lemak": 1.5},
+
+    "Dubai Chewy Cookies (1 pcs/70g)": {"kalori": 320, "protein": 4.5, "karbo": 38.0, "lemak": 17.0},
+    "Es Krim Vanilla / Cokelat (1 scoop/75g)": {"kalori": 150, "protein": 2.5, "karbo": 18.0, "lemak": 7.5},
+    "Kopi Hitam / Americano Unsweetened (1 gelas)": {"kalori": 5, "protein": 0.3, "karbo": 0.0, "lemak": 0.0},
+    "Milk Tea / Boba Drink (1 cup standard)": {"kalori": 350, "protein": 3.0, "karbo": 58.0, "lemak": 12.0},
+    "Yogurt Plain / Greek Yogurt (1 cup/125g)": {"kalori": 100, "protein": 7.0, "karbo": 8.0, "lemak": 4.0},
+    
+    "Ayam Goreng - Dada (1 pcs)": {"kalori": 220, "protein": 29.0, "karbo": 0.0, "lemak": 11.0},
+    "Ayam Goreng - Paha Atas / Thigh (1 pcs)": {"kalori": 210, "protein": 22.0, "karbo": 0.0, "lemak": 13.0},
+    "Ayam Goreng - Paha Bawah / Drumstick (1 pcs)": {"kalori": 160, "protein": 18.0, "karbo": 0.0, "lemak": 9.5},
+    "Ayam Goreng - Kepak / Sayap (1 pcs)": {"kalori": 140, "protein": 12.0, "karbo": 0.0, "lemak": 10.0},
+    "Ayam Goreng - Ati Ampela (1 pasang)": {"kalori": 120, "protein": 16.0, "karbo": 0.5, "lemak": 5.5},
+
     "Fried Chicken - Dada (1 pcs)": {"kalori": 390, "protein": 34.0, "karbo": 11.0, "lemak": 23.0},
+    "Fried Chicken - Paha Upper (1 pcs)": {"kalori": 330, "protein": 24.0, "karbo": 9.0, "lemak": 22.0},
+    "Fried Chicken - Paha Bawah / Drumstick (1 pcs)": {"kalori": 220, "protein": 16.0, "karbo": 7.0, "lemak": 14.0},
+    "Fried Chicken - Sayap (1 pcs)": {"kalori": 210, "protein": 13.0, "karbo": 8.0, "lemak": 14.0},
+    "Ayam Geprek + Tepung (1 porsi)": {"kalori": 420, "protein": 28.0, "karbo": 15.0, "lemak": 27.0},
+    "Ayam Popcorn / Crispy Bites (100g)": {"kalori": 290, "protein": 18.0, "karbo": 16.0, "lemak": 17.0},
     "Dada Ayam Bakar (100g)": {"kalori": 165, "protein": 31.0, "karbo": 0.0, "lemak": 3.6},
     "Dada Ayam Rebus/Kukus (100g)": {"kalori": 130, "protein": 28.0, "karbo": 0.0, "lemak": 2.0},
+    "Sate Ayam + Bumbu Kacang (10 tusuk)": {"kalori": 420, "protein": 32.0, "karbo": 12.0, "lemak": 26.0},
+    "Dimsum Ayam (4 pcs)": {"kalori": 210, "protein": 14.0, "karbo": 18.0, "lemak": 9.0},
+    
+    "Martabak Telur Daging Sapi (4 Telur - 1 Potong)": {"kalori": 190, "protein": 9.5, "karbo": 10.0, "lemak": 12.5},
     "Telur Rebus (1 butir)": {"kalori": 78, "protein": 6.3, "karbo": 0.6, "lemak": 5.3},
     "Telur Dadar (1 butir)": {"kalori": 110, "protein": 6.5, "karbo": 0.8, "lemak": 9.0},
     "Tahu Goreng (1 potong)": {"kalori": 35, "protein": 2.0, "karbo": 1.5, "lemak": 2.5},
     "Tempe Goreng (1 potong)": {"kalori": 50, "protein": 4.0, "karbo": 3.0, "lemak": 3.0},
-    "Susu UHT Full Cream (200ml)": {"kalori": 120, "protein": 6.0, "karbo": 9.0, "lemak": 7.0},
     "Whey Protein Shake (1 scoop)": {"kalori": 120, "protein": 24.0, "karbo": 3.0, "lemak": 1.5},
-    "Kebab Daging (1 pcs)": {"kalori": 520, "protein": 20.0, "karbo": 45.0, "lemak": 28.0},
-    "Sei Sapi (100g)": {"kalori": 240, "protein": 26.0, "karbo": 2.0, "lemak": 14.0},
-    "Sate Ayam (10 tusuk)": {"kalori": 340, "protein": 28.0, "karbo": 12.0, "lemak": 20.0},
-    "Telur Dadar Sayur (1 porsi)": {"kalori": 170, "protein": 13.0, "karbo": 3.0, "lemak": 12.0},
-    "Roti Tawar Gandum (2 lembar)": {"kalori": 130, "protein": 5.0, "karbo": 24.0, "lemak": 1.5},
-    "Tempe Goreng Tepung (1 potong)": {"kalori": 90, "protein": 6.0, "karbo": 5.0, "lemak": 5.0},
-    "Nasi Uduk Half + Telur Rebus": {"kalori": 280, "protein": 10.0, "karbo": 35.0, "lemak": 11.0},
-    "Bubur Ayam Tanpa Kerupuk (1 mangkok)": {"kalori": 250, "protein": 14.0, "karbo": 35.0, "lemak": 5.0},
-    "Nasi Kuning Half + Telur Suwir": {"kalori": 260, "protein": 11.0, "karbo": 36.0, "lemak": 8.0},
-    "Lontong Sayur Telur Kuah Dikit": {"kalori": 270, "protein": 11.0, "karbo": 34.0, "lemak": 10.0},
-    "Tahu Kukus Isi Daging (2 pcs)": {"kalori": 160, "protein": 14.0, "karbo": 5.0, "lemak": 9.0},
-    "Oatmeal Instant + Susu Low Fat": {"kalori": 230, "protein": 10.0, "karbo": 36.0, "lemak": 5.0},
-    "Ayam Goreng Lengkuas - Dada (1 potong)": {"kalori": 240, "protein": 35.0, "karbo": 2.0, "lemak": 10.0},
-    "Ayam Bakar Kecap - Dada (1 potong)": {"kalori": 220, "protein": 35.0, "karbo": 5.0, "lemak": 6.0},
-    "Ikan Lele Goreng (1 ekor)": {"kalori": 200, "protein": 18.0, "karbo": 2.0, "lemak": 13.0},
-    "Ikan Nila Bakar (1 ekor/150g)": {"kalori": 190, "protein": 30.0, "karbo": 2.0, "lemak": 7.0},
-    "Tahu Bacem (1 potong)": {"kalori": 80, "protein": 5.0, "karbo": 9.0, "lemak": 3.0},
-    "Tempe Bacem (1 potong)": {"kalori": 100, "protein": 7.0, "karbo": 9.0, "lemak": 4.0},
-    "Tumis Kangkung / Bayam (1 porsi)": {"kalori": 80, "protein": 3.0, "karbo": 6.0, "lemak": 5.0},
-    "Soto Ayam Bening + Nasi Half": {"kalori": 290, "protein": 20.0, "karbo": 32.0, "lemak": 8.0},
-    "Pecel Lele + Lalapan (Tanpa Nasi)": {"kalori": 220, "protein": 18.0, "karbo": 4.0, "lemak": 14.0},
-    "Sayur Asem (1 mangkok)": {"kalori": 80, "protein": 2.0, "karbo": 14.0, "lemak": 2.0},
-    "Ayam Suwir Balado - Dada (100g)": {"kalori": 190, "protein": 30.0, "karbo": 4.0, "lemak": 6.0},
-    "Sup Ayam Bening - Dada (1 mangkok)": {"kalori": 190, "protein": 25.0, "karbo": 10.0, "lemak": 5.0},
-    "Capcay Ayam Kuah (1 porsi)": {"kalori": 210, "protein": 22.0, "karbo": 12.0, "lemak": 8.0},
-    "Sate Ayam Tanpa Bumbu Kacang (8 tusuk)": {"kalori": 200, "protein": 32.0, "karbo": 2.0, "lemak": 6.0},
-    "Tumis Buncis Telur Orak-Arik (1 porsi)": {"kalori": 150, "protein": 9.0, "karbo": 8.0, "lemak": 9.0},
-    "Ikan Tongkol Balado (1 potong/100g)": {"kalori": 180, "protein": 24.0, "karbo": 3.0, "lemak": 8.0},
-    "Tahu Tek / Tahu Telur Sedikit Minyak": {"kalori": 250, "protein": 16.0, "karbo": 20.0, "lemak": 12.0},
-    "Nasi Goreng Kampung Simpel + Telur": {"kalori": 320, "protein": 12.0, "karbo": 42.0, "lemak": 11.0},
-    "Tumis Tahu Jamur (1 porsi)": {"kalori": 160, "protein": 12.0, "karbo": 8.0, "lemak": 9.0},
-    "Soto Daging Bening Tanpa Santan": {"kalori": 220, "protein": 22.0, "karbo": 6.0, "lemak": 12.0},
-    "Kentang Rebus (100g)": {"kalori": 87, "protein": 1.9, "karbo": 20.0, "lemak": 0.1},
-    "Edamame Rebus (100g)": {"kalori": 120, "protein": 11.0, "karbo": 10.0, "lemak": 5.0},
-    "Apel Red / Fuji (1 buah)": {"kalori": 80, "protein": 0.4, "karbo": 21.0, "lemak": 0.2},
-    "Pisang Ambon / Sunpride (1 buah)": {"kalori": 90, "protein": 1.1, "karbo": 23.0, "lemak": 0.3},
-    "Kacang Almond Panggang (15 butir)": {"kalori": 105, "protein": 4.0, "karbo": 3.0, "lemak": 9.0},
-    "Roti Gandum + Peanut Butter (1 sheet)": {"kalori": 180, "protein": 7.0, "karbo": 20.0, "lemak": 8.0},
-    "Puding Chia Seed / Agar Plain": {"kalori": 70, "protein": 3.0, "karbo": 8.0, "lemak": 3.0},
-    "Dada Ayam Popcorn Airfryer (80g)": {"kalori": 130, "protein": 24.0, "karbo": 3.0, "lemak": 2.0},
-    "Kacang Tanah Sangrai (25g)": {"kalori": 140, "protein": 6.0, "karbo": 5.0, "lemak": 12.0},
-    "Keju Slice Low Fat (2 lembar)": {"kalori": 90, "protein": 8.0, "karbo": 2.0, "lemak": 5.0},
-    "Dark Chocolate 70%+ (2 kotak/20g)": {"kalori": 110, "protein": 1.5, "karbo": 9.0, "lemak": 8.0},
-    "Salmon Nigiri (2 pcs)": {"kalori": 130, "protein": 7.0, "karbo": 15.0, "lemak": 3.5},
-    "Tuna Nigiri (2 pcs)": {"kalori": 110, "protein": 8.0, "karbo": 15.0, "lemak": 1.0},
-    "Salmon Maki Roll (6 pcs)": {"kalori": 180, "protein": 9.0, "karbo": 28.0, "lemak": 3.0},
-    "California Roll (8 pcs)": {"kalori": 280, "protein": 7.0, "karbo": 38.0, "lemak": 7.0},
-    "Spicy Tuna Roll (8 pcs)": {"kalori": 320, "protein": 12.0, "karbo": 36.0, "lemak": 11.0},
-    "Chicken Katsu Roll (8 pcs)": {"kalori": 380, "protein": 14.0, "karbo": 45.0, "lemak": 14.0},
-    "Salmon Mentai Roll (8 pcs)": {"kalori": 450, "protein": 15.0, "karbo": 48.0, "lemak": 18.0},
-    "Salmon Sashimi (5 pcs/Tanpa Nasi)": {"kalori": 170, "protein": 23.0, "karbo": 0.0, "lemak": 8.0},
-}
 
-# ==========================================
-# 2. HELPER FUNCTIONS
-# ==========================================
+    "Susu Dancow FortiGro Full Cream (1 saset/27g)": {"kalori": 130, "protein": 6.0, "karbo": 12.0, "lemak": 7.0},
+    "Susu Dancow FortiGro Cokelat (1 saset/39g)": {"kalori": 160, "protein": 5.0, "karbo": 23.0, "lemak": 5.0},
+    "Susu Zee Swirtz Cokelat/Vanila (1 saset/40g)": {"kalori": 160, "protein": 5.0, "karbo": 24.0, "lemak": 4.5},
+    "Susu Milo Bubuk (1 saset/22g)": {"kalori": 90, "protein": 2.0, "karbo": 14.0, "lemak": 2.5},
+    "Susu UHT Full Cream / Ultra Milk (200ml)": {"kalori": 120, "protein": 6.0, "karbo": 9.0, "lemak": 7.0},
+    "Susu Indomilk UHT Cokelat (190ml)": {"kalori": 140, "protein": 5.0, "karbo": 21.0, "lemak": 4.0},
+    "Susu Bear Brand / Beruang (1 kaleng/189ml)": {"kalori": 120, "protein": 6.0, "karbo": 9.0, "lemak": 7.0},
+
+    "Martabak Manis Cokelat Keju (1 potong)": {"kalori": 270, "protein": 5.0, "karbo": 34.0, "lemak": 13.0},
+    "Pisang Goreng (1 pcs)": {"kalori": 140, "protein": 1.2, "karbo": 22.0, "lemak": 5.5},
+    "Roti Bakar Cokelat Keju (1 porsi)": {"kalori": 380, "protein": 8.0, "karbo": 52.0, "lemak": 16.0},
+    "Kue Klepon (3 pcs)": {"kalori": 135, "protein": 1.5, "karbo": 26.0, "lemak": 3.0},
+    "Donat Cokelat Meses (1 pcs)": {"kalori": 240, "protein": 4.0, "karbo": 31.0, "lemak": 11.0},
+    "Es Cendol / Dawet (1 gelas)": {"kalori": 220, "protein": 2.0, "karbo": 38.0, "lemak": 7.0},
+    "Es Teler (1 mangkok)": {"kalori": 310, "protein": 3.5, "karbo": 48.0, "lemak": 12.0},
+    "Kopi Susu Gula Aren (1 gelas)": {"kalori": 180, "protein": 3.0, "karbo": 25.0, "lemak": 7.0},
+}
 
 def add_food_to_db(user_id, tanggal, waktu, makanan, porsi, kalori, protein, karbo, lemak):
     conn = sqlite3.connect("nutrition_tracker.db")
@@ -251,6 +240,27 @@ def get_weight_history(user_id):
     conn.close()
     return df
 
+def add_workout_log(user_id, tanggal, jenis, durasi, kalori):
+    conn = sqlite3.connect("nutrition_tracker.db")
+    c = conn.cursor()
+    c.execute("INSERT INTO workout_logs (user_id, tanggal, jenis_latihan, durasi_menit, kalori_terbakar) VALUES (?, ?, ?, ?, ?)", 
+            (user_id, tanggal, jenis, durasi, kalori))
+    conn.commit()
+    conn.close()
+
+def get_workout_logs(user_id, tanggal):
+    conn = sqlite3.connect("nutrition_tracker.db")
+    df = pd.read_sql_query("SELECT id, jenis_latihan as [Jenis Latihan], durasi_menit as [Durasi (menit)], kalori_terbakar as [Kalori Terbakar (kcal)] FROM workout_logs WHERE user_id = ? AND tanggal = ?", conn, params=(user_id, tanggal))
+    conn.close()
+    return df
+
+def delete_workout_log(user_id, item_id):
+    conn = sqlite3.connect("nutrition_tracker.db")
+    c = conn.cursor()
+    c.execute("DELETE FROM workout_logs WHERE user_id = ? AND id = ?", (user_id, item_id))
+    conn.commit()
+    conn.close()
+
 def get_streak_count(user_id):
     conn = sqlite3.connect("nutrition_tracker.db")
     c = conn.cursor()
@@ -285,15 +295,12 @@ def get_weekly_history(user_id):
 
 class PDFWithWatermark(FPDF):
     def header(self):
-        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-        logo_path = os.path.join(BASE_DIR, "logo-removebg-preview.png")
+        logo_path = "logo-removebg-preview.png"
         if os.path.exists(logo_path):
             try:
-                self.set_alpha(0.15)
                 self.image(logo_path, x=55, y=90, w=100)
-                self.set_alpha(1.0)
             except Exception as e:
-                print(f"Error watermark: {e}")
+                st.error(f"Gagal memuat watermark: {e}")
 
 def generate_pdf_report(user_id, tanggal, df_food, water_ml, target_kal, target_prot, target_karb, target_lem):
     pdf = PDFWithWatermark()
@@ -345,19 +352,12 @@ def generate_pdf_report(user_id, tanggal, df_food, water_ml, target_kal, target_
         
     return bytes(pdf.output())
 
-
-# ==========================================
-# 3. MANAJEMEN URL QUERY PARAMS & STATE
-# ==========================================
-
 query_params = st.query_params
 
-# Default User
 default_user = query_params.get("user", "User1")
 if "user_id_input" not in st.session_state:
     st.session_state["user_id_input"] = default_user
 
-# Default Calculator Params (Di-sync ke Bookmark)
 st.session_state.setdefault("calc_gender", query_params.get("gender", "Pria"))
 st.session_state.setdefault("calc_usia", int(query_params.get("usia", 22)))
 st.session_state.setdefault("calc_bb", float(query_params.get("bb", 65.0)))
@@ -365,14 +365,12 @@ st.session_state.setdefault("calc_tb", float(query_params.get("tb", 170.0)))
 st.session_state.setdefault("calc_aktivitas", query_params.get("aktivitas", "Ringan (Olahraga 1-3 hari/minggu)"))
 st.session_state.setdefault("calc_goal", query_params.get("goal", "Defisit Kalori (-500 kcal / Turun BB)"))
 
-# Default Target Nutrisi Harian
 st.session_state.setdefault('target_kalori_val', int(query_params.get("target_kal", 2000)))
 st.session_state.setdefault('target_protein_val', int(query_params.get("target_prot", 120)))
 st.session_state.setdefault('target_karbo_val', int(query_params.get("target_karb", 250)))
 st.session_state.setdefault('target_lemak_val', int(query_params.get("target_lem", 60)))
 
 def update_url_params():
-    """Fungsi sync state ke URL browser untuk Bookmark"""
     st.query_params["user"] = st.session_state["user_id_input"]
     st.query_params["gender"] = st.session_state["calc_gender"]
     st.query_params["usia"] = str(st.session_state["calc_usia"])
@@ -385,14 +383,8 @@ def update_url_params():
     st.query_params["target_karb"] = str(st.session_state["target_karbo_val"])
     st.query_params["target_lem"] = str(st.session_state["target_lemak_val"])
 
-
-# ==========================================
-# 4. SIDEBAR (PROFIL + KALKULATOR & TARGET)
-# ==========================================
-
 st.sidebar.title("📌 Menu & Pengaturan")
 
-# --- PROFIL USER ---
 st.sidebar.subheader("👤 Profil Pengguna")
 raw_user = st.sidebar.text_input(
     "Masukkan Nama/ID Kamu:", 
@@ -407,7 +399,6 @@ st.sidebar.markdown(f"🔥 Streak **[{user_id.upper()}]**: **{streak_days} Hari*
 
 st.sidebar.divider()
 
-# --- MODE TANGGAL ---
 use_today_auto = st.sidebar.checkbox("🔄 Reset Otomatis 24 Jam (Hari Ini)", value=True)
 if use_today_auto:
     selected_date = datetime.date.today().strftime("%Y-%m-%d")
@@ -417,7 +408,6 @@ else:
 
 st.sidebar.divider()
 
-# --- KALKULATOR BMR & TDEE DI SIDEBAR ---
 with st.sidebar.expander("⚖️ Kalkulator BMR & TDEE", expanded=False):
     list_jk = ["Pria", "Wanita"]
     list_aktivitas = [
@@ -440,7 +430,6 @@ with st.sidebar.expander("⚖️ Kalkulator BMR & TDEE", expanded=False):
     st.selectbox("Tingkat Aktivitas", list_aktivitas, key="calc_aktivitas", on_change=update_url_params)
     st.selectbox("Target Kebugaran", list_goal, key="calc_goal", on_change=update_url_params)
 
-    # Hitung Rekomendasi
     _bb = st.session_state.calc_bb
     _tb = st.session_state.calc_tb
     _usia = st.session_state.calc_usia
@@ -472,7 +461,6 @@ with st.sidebar.expander("⚖️ Kalkulator BMR & TDEE", expanded=False):
         st.success("Target berhasil diperbarui!")
         st.rerun()
 
-# --- CUSTOM TARGET MANUAL DI SIDEBAR ---
 with st.sidebar.expander("🎯 Target Nutrisi Harian", expanded=False):
     st.number_input("Target Kalori (kcal)", step=50, key="target_kalori_val", on_change=update_url_params)
     st.number_input("Target Protein (g)", step=5, key="target_protein_val", on_change=update_url_params)
@@ -485,29 +473,23 @@ target_karbo = st.session_state.target_karbo_val
 target_lemak = st.session_state.target_lemak_val
 target_air = 2000
 
-# Update URL awal
 update_url_params()
-
-
-# ==========================================
-# 5. DASHBOARD UTAMA
-# ==========================================
 
 st.title("🥗 Food & Nutrition Tracker Pro")
 st.caption(f"Aplikasi Monitoring Nutrisi Harian | User Active: **[{user_id.upper()}]** | Tanggal: **{selected_date}**")
 
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "🍱 Input Makanan", 
     "💧 Hydration Tracker", 
     "📊 Dashboard Visual", 
+    "🏋️ Jadwal Latihan", 
     "⚖️ Weight Progress", 
     "📈 Riwayat & Export",
     "☁️ Cloud Sync"
 ])
 
-# --- TAB 1: INPUT MAKANAN ---
 with tab1:
-    subtab1, subtab2 = st.tabs(["🍱 Racik Menu (Database)", "✏️ Input Custom Manual"])
+    subtab1, subtab2 = st.tabs(["🍱 Racik Menu", "✏️ Input Custom Manual"])
     
     with subtab1:
         st.subheader("Racik Piring Makan")
@@ -615,7 +597,6 @@ with tab1:
     else:
         st.info("Belum ada makanan yang dicatat pada tanggal ini. (Reset otomatis tiap 24 jam)")
 
-# --- TAB 2: HYDRATION TRACKER ---
 with tab2:
     st.subheader(f"💧 Tracking Asupan Air Minum - [{user_id.upper()}]")
     
@@ -684,7 +665,6 @@ with tab2:
             reset_water_db(user_id, selected_date)
             st.rerun()
 
-# --- TAB 3: DASHBOARD VISUAL ---
 with tab3:
     st.subheader(f"📊 Summary Nutrisi & Schedule Protein - [{user_id.upper()}] ({selected_date})")
     
@@ -786,8 +766,116 @@ with tab3:
         else:
             st.info("Belum ada data kalori per waktu makan.")
 
-# --- TAB 4: WEIGHT PROGRESS ---
 with tab4:
+    st.subheader(f"🏋️ Workout Schedule & Log - [{user_id.upper()}]")
+    st.caption("Pilih Split Program Latihan Mingguan dan Catat Sesi Latihan Harianmu.")
+    
+    subtab_sched, subtab_log = st.tabs(["🗓️ Panduan Program Latihan", "📝 Catat Sesi Selesai Manual"])
+    
+    with subtab_sched:
+        col_opt1, col_opt2 = st.columns([1, 2])
+        with col_opt1:
+            pilih_split = st.selectbox("Pilih Split Program:", [
+                "Push / Pull / Legs (PPL - 3/6 Hari)",
+                "Upper / Lower Body (4 Hari)",
+                "Full Body Workout (3 Hari Rumahan)"
+            ])
+            pilih_hari = st.selectbox("Pilih Hari:", ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"])
+
+        with col_opt2:
+            st.write(f"### 📋 Menu Latihan: **{pilih_hari}**")
+            
+            if "Push / Pull / Legs" in pilih_split:
+                program = {
+                    "Senin": [("Push-ups / Bench Press", "4 Set x 10-12 Reps"), ("Overhead Shoulder Press", "3 Set x 12 Reps"), ("Tricep Dips", "3 Set x 15 Reps"), ("Incline Push-ups", "3 Set x 12 Reps")],
+                    "Selasa": [("Pull-ups / Inverted Row", "4 Set x 8-10 Reps"), ("Dumbbell / Resistance Band Row", "3 Set x 12 Reps"), ("Bicep Curls", "3 Set x 12 Reps"), ("Face Pulls / Rear Delt Fly", "3 Set x 15 Reps")],
+                    "Rabu": [("Bodyweight / Barbell Squats", "4 Set x 12 Reps"), ("Romanian Deadlifts / Glute Bridges", "3 Set x 10 Reps"), ("Walking Lunges", "3 Set x 12 Reps/kaki"), ("Calf Raises", "4 Set x 20 Reps")],
+                    "Kamis": [("Rest Day / Kardio Ringan", "Jalan santai 30 menit atau stretching")],
+                    "Jumat": [("Push-ups Varian / Chest Fly", "4 Set x 12 Reps"), ("Lateral Raises", "4 Set x 15 Reps"), ("Skullcrushers / Overhead Tricep Extension", "3 Set x 12 Reps")],
+                    "Sabtu": [("Lat Pulldown / Chin-ups", "4 Set x 10 Reps"), ("Hammer Curls", "3 Set x 12 Reps"), ("Plank to Push-up", "3 Set x 10 Reps")],
+                    "Minggu": [("Rest Day / Pemulihan Total", "Fokus tidur cukup & minum air")]
+                }
+            elif "Upper / Lower" in pilih_split:
+                program = {
+                    "Senin": [("Push-ups", "4 Set x 12 Reps"), ("Rows", "4 Set x 12 Reps"), ("Shoulder Press", "3 Set x 12 Reps"), ("Bicep & Tricep Supersets", "3 Set x 15 Reps")],
+                    "Selasa": [("Squats", "4 Set x 15 Reps"), ("Lunges", "3 Set x 12 Reps"), ("Leg Raises", "3 Set x 15 Reps"), ("Plank", "3 Set x 45 Detik")],
+                    "Rabu": [("Rest Day", "Stretching Ringan")],
+                    "Kamis": [("Incline Push-ups", "4 Set x 12 Reps"), ("Pull-ups / Band Pull", "4 Set x 10 Reps"), ("Lateral Raises", "3 Set x 15 Reps")],
+                    "Jumat": [("Deadlifts / Glute Bridge", "4 Set x 10 Reps"), ("Bulgarian Split Squat", "3 Set x 10 Reps/kaki"), ("Crunches", "3 Set x 20 Reps")],
+                    "Sabtu": [("Kardio / HIIT", "20-30 Menit")],
+                    "Minggu": [("Rest Day", "Pemulihan Total")]
+                }
+            else:
+                program = {
+                    "Senin": [("Jumping Jacks", "3 Set x 30 Detik"), ("Bodyweight Squat", "3 Set x 15 Reps"), ("Push-ups", "3 Set x 10 Reps"), ("Plank", "3 Set x 30 Detik")],
+                    "Selasa": [("Rest Day / Jalan Cepat", "30 Menit")],
+                    "Rabu": [("Burpees", "3 Set x 10 Reps"), ("Lunges", "3 Set x 12 Reps"), ("Mountain Climbers", "3 Set x 30 Detik"), ("Crunches", "3 Set x 15 Reps")],
+                    "Kamis": [("Rest Day", "Stretching Fleksibilitas")],
+                    "Jumat": [("High Knees", "3 Set x 30 Detik"), ("Knee Push-ups / Standard Push-ups", "3 Set x 12 Reps"), ("Chair Squat", "3 Set x 15 Reps"), ("Plank", "3 Set x 40 Detik")],
+                    "Sabtu": [("Rest Day / Kardio Ringan", "Jalan Santai")],
+                    "Minggu": [("Rest Day Total", "Istirahat Total")]
+                }
+                
+            tasks = program.get(pilih_hari, [("Istirahat", "Tidak ada jadwal latihan")])
+            
+            with st.form("form_checklist_workout"):
+                selected_exercises = []
+                for idx, (ex_nama, ex_set) in enumerate(tasks):
+                    chk = st.checkbox(f"**{ex_nama}** — `{ex_set}`", key=f"chk_{pilih_hari}_{idx}")
+                    if chk:
+                        selected_exercises.append(ex_nama)
+                
+                default_durasi = max(10, len(selected_exercises) * 8)
+                durasi_input = st.number_input("Estimasi Total Durasi (menit):", min_value=5, value=default_durasi, step=5)
+                
+                bb_user = st.session_state.get("calc_bb", 65.0)
+                met_value = 5.0 if "Rest Day" not in pilih_hari else 2.0
+                kalori_hitung_otomatis = round((met_value * 3.5 * bb_user / 200) * durasi_input, 1)
+                
+                st.caption(f"🔥 *Estimasi Otomatis (BB: {bb_user}kg, {durasi_input} mnt):* **~{kalori_hitung_otomatis} kcal**")
+                
+                btn_simpan_checklist = st.form_submit_button("💾 Simpan Latihan Tercentang ke Log")
+                
+                if btn_simpan_checklist:
+                    if selected_exercises:
+                        nama_gabungan = f"{pilih_split.split(' ')[0]} ({pilih_hari}): " + ", ".join(selected_exercises)
+                        add_workout_log(user_id, selected_date, nama_gabungan, durasi_input, kalori_hitung_otomatis)
+                        st.success(f"Berhasil menyimpan {len(selected_exercises)} latihan ke database (~{kalori_hitung_otomatis} kcal)!")
+                        st.rerun()
+                    else:
+                        st.warning("Pilih/centang minimal 1 gerakan latihan terlebih dahulu!")
+
+    with subtab_log:
+        st.subheader("Catat Sesi Latihan Manual")
+        with st.form("form_workout_log"):
+            w_jenis = st.text_input("Nama/Jenis Latihan:", placeholder="Contoh: Running 5KM / Main Futsal")
+            col_w1, col_w2 = st.columns(2)
+            w_durasi = col_w1.number_input("Durasi (Menit):", min_value=5, step=5, value=30)
+            w_kalori = col_w2.number_input("Perkiraan Kalori Terbakar (kcal):", min_value=10, step=10, value=150)
+            
+            submit_w = st.form_submit_button("Simpan Log Manual")
+            if submit_w:
+                if w_jenis:
+                    add_workout_log(user_id, selected_date, w_jenis, w_durasi, w_kalori)
+                    st.success(f"Berhasil mencatat sesi {w_jenis}!")
+                    st.rerun()
+                else:
+                    st.error("Nama latihan wajib diisi!")
+        
+        st.divider()
+        st.write(f"**Log Latihan Tanggal ({selected_date}):**")
+        df_w_logs = get_workout_logs(user_id, selected_date)
+        if not df_w_logs.empty:
+            st.dataframe(df_w_logs, use_container_width=True)
+            w_del_id = st.selectbox("Pilih ID latihan untuk dihapus:", df_w_logs["id"].tolist())
+            if st.button("Hapus Log Latihan"):
+                delete_workout_log(user_id, w_del_id)
+                st.success("Log latihan berhasil dihapus!")
+                st.rerun()
+        else:
+            st.info("Belum ada latihan yang dicatat pada tanggal ini.")
+
+with tab5:
     st.subheader(f"⚖️ Catat & Pantau Berat Badan - [{user_id.upper()}]")
     
     col_w1, col_w2 = st.columns([1, 2])
@@ -811,8 +899,7 @@ with tab4:
         else:
             st.info("Belum ada riwayat berat badan yang dicatat.")
 
-# --- TAB 5: RIWAYAT & EXPORT PDF ---
-with tab5:
+with tab6:
     st.subheader(f"📈 Riwayat Tren 7 Hari & Export PDF - [{user_id.upper()}]")
     
     df_today_export = load_food_logs(user_id, selected_date)
@@ -849,8 +936,7 @@ with tab5:
     else:
         st.info("Belum ada riwayat data makanan.")
 
-# --- TAB 6: CLOUD SYNC ---
-with tab6:
+with tab7:
     st.subheader("☁️ Google Sheets Cloud Sync")
     st.caption("Pilih opsi integrasi cloud untuk backup data kamu secara permanen.")
     
@@ -858,7 +944,7 @@ with tab6:
     
     col_cs1, col_cs2 = st.columns(2)
     with col_cs1:
-        if st.button("📤 Backup Local DB ke Cloud"):
+        if st.button("📤 Backup Local DB ke Cloud"): 
             st.info("Proses backup ke Google Sheets...")
     with col_cs2:
         if st.button("📥 Sync/Fetch Data dari Cloud"):
