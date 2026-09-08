@@ -22,50 +22,98 @@ st.markdown("""
     html, body, [class*="css"] {
         font-family: 'Plus Jakarta Sans', sans-serif;
     }
-    .stApp {
-        background: radial-gradient(circle at 10% 20%, rgba(18, 24, 38, 1) 0%, rgba(9, 13, 22, 1) 90%);
-    }
-    .macro-card {
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        backdrop-filter: blur(12px);
-        border-radius: 16px;
-        padding: 18px;
-        transition: transform 0.2s ease, border-color 0.2s ease;
-        margin-bottom: 10px;
-    }
-    .macro-card:hover {
-        transform: translateY(-2px);
-        border-color: rgba(255, 255, 255, 0.2);
-    }
-    .macro-title {
-        font-size: 0.82rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #8E9BAE; margin-bottom: 6px;
-    }
-    .macro-value { font-size: 1.6rem; font-weight: 800; color: #FFFFFF; }
-    .macro-sub { font-size: 0.78rem; margin-top: 4px; font-weight: 500; }
     
-    .card-kalori { border-left: 4px solid #FF5252; }
-    .card-protein { border-left: 4px solid #4CAF50; }
-    .card-karbo { border-left: 4px solid #FFB74D; }
-    .card-lemak { border-left: 4px solid #29B6F6; }
-    
-    section[data-testid="stSidebar"] {
-        background-color: rgba(13, 17, 28, 0.85);
-        border-right: 1px solid rgba(255, 255, 255, 0.06);
+    /* Desain Card Modern yang Otomatis Menyesuaikan Tema */
+    .macro-card, .metric-card {
+        background-color: var(--secondary-background-color);
+        border: 1px solid rgba(150, 150, 150, 0.15);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+        border-radius: 24px;
+        padding: 22px;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        margin-bottom: 12px;
+        position: relative;
+        overflow: hidden;
     }
+    .macro-card:hover, .metric-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
+    }
+    
+    /* Tipografi Card yang Mengikuti Text-Color Streamlit */
+    .macro-title, .metric-title {
+        font-size: 0.85rem; 
+        font-weight: 700; 
+        text-transform: capitalize; 
+        color: var(--text-color); 
+        opacity: 0.7;
+        margin-bottom: 8px;
+    }
+    .macro-value, .metric-value { 
+        font-size: 1.8rem; 
+        font-weight: 800; 
+        color: var(--text-color); 
+    }
+    .macro-sub, .metric-sub { 
+        font-size: 0.75rem; 
+        margin-top: 6px; 
+        font-weight: 600; 
+        color: var(--text-color);
+        opacity: 0.7;
+    }
+    
+    /* Aksen Warna Pastel */
+    .card-kalori { border-bottom: 5px solid #D291BC; } 
+    .card-protein { border-bottom: 5px solid #FFB7B2; } 
+    .card-karbo { border-bottom: 5px solid #E2F0CB; } 
+    .card-lemak { border-bottom: 5px solid #B5EAD7; } 
+    
+    /* PERBAIKAN FINAL & PALING AMPUH UNTUK TAB STREAMLIT */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 8px; background-color: rgba(255, 255, 255, 0.03); padding: 6px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.05);
+        gap: 8px; 
+        background-color: var(--secondary-background-color); 
+        padding: 8px; 
+        border-radius: 16px; 
+        border: 1px solid rgba(150, 150, 150, 0.15);
     }
-    .stTabs [data-baseweb="tab"] {
-        border-radius: 10px; padding: 8px 16px; color: #8E9BAE; font-weight: 600; border: none !important;
+    
+    /* Target langsung tag button dari tab */
+    .stTabs button[data-baseweb="tab"] {
+        border-radius: 12px; 
+        padding: 8px 16px; 
+        font-weight: 600; 
+        border: none !important;
+        background-color: transparent !important;
+        color: var(--text-color) !important;
     }
-    .stTabs [aria-selected="true"] {
-        background-color: rgba(255, 255, 255, 0.1) !important; color: #FFFFFF !important;
+
+    /* Ketika Tab Aktif */
+    .stTabs button[data-baseweb="tab"][aria-selected="true"] {
+        background-color: var(--primary-color) !important; 
+        border-radius: 12px !important;
     }
+
+    /* Memaksa warna teks di dalam tombol tab aktif menjadi putih */
+    .stTabs button[data-baseweb="tab"][aria-selected="true"] * {
+        color: #FFFFFF !important;
+    }
+    
+    /* Tombol Dinamis */
     .stButton>button {
-        border-radius: 10px; font-weight: 600; border: 1px solid rgba(255, 255, 255, 0.1); transition: all 0.2s ease;
+        border-radius: 18px; 
+        font-weight: 700; 
+        background-color: var(--secondary-background-color); 
+        border: 1px solid rgba(150, 150, 150, 0.3); 
+        color: var(--text-color); 
+        box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        transition: all 0.2s ease; 
     }
-    .stButton>button:hover { border-color: #4CAF50; color: #4CAF50; }
+    .stButton>button:hover { 
+        border-color: var(--primary-color); 
+        color: var(--primary-color); 
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -145,6 +193,13 @@ DATABASE_MAKANAN = {
     "Dada Ayam Rebus/Kukus (100g)": {"kalori": 130, "protein": 28.0, "karbo": 0.0, "lemak": 2.0},
     "Sate Ayam + Bumbu Kacang (10 tusuk)": {"kalori": 420, "protein": 32.0, "karbo": 12.0, "lemak": 26.0},
     "Dimsum Ayam (4 pcs)": {"kalori": 210, "protein": 14.0, "karbo": 18.0, "lemak": 9.0},
+
+    "Sayur Lodeh": {"calories": 150, "protein": 4, "carbs": 15, "fat": 8},
+    "Pecel Ayam": {"calories": 450, "protein": 35, "carbs": 15, "fat": 28},
+    "Pecel Lele": {"calories": 400, "protein": 25, "carbs": 15, "fat": 25},
+    "Sayur Pecel (Nasi + Sayur)": {"calories": 350, "protein": 8, "carbs": 50, "fat": 12},
+    "Indomie Rebus": {"calories": 380, "protein": 8, "carbs": 54, "fat": 14},
+    "Indomie Goreng": {"calories": 420, "protein": 9, "carbs": 60, "fat": 16},
     
     "Martabak Telur Daging Sapi (4 Telur - 1 Potong)": {"kalori": 190, "protein": 9.5, "karbo": 10.0, "lemak": 12.5},
     "Telur Rebus (1 butir)": {"kalori": 78, "protein": 6.3, "karbo": 0.6, "lemak": 5.3},
